@@ -15,8 +15,8 @@ sass:
 
 # Customise atom feed settings (this is where Jekyll-Feed gets configuration information)
 title:       "Deabute"
-description: "Landing Page"
-author:      "Paul Beaudet"
+description: "Deployment pipelining technologies for developer driven operations"
+author:      "Deabute Innovation"
 
 # RSS 2.0 can be used instead of Atom by uncommenting following two lines
 #feed:
