@@ -1,10 +1,10 @@
 <header class="site-header">
   <h3 class="site-title">
-    <a href="{{ site.base.url }}/">{{ site.title }}</a>
+    <a href="{{ site.url }}/">{{ site.title }}</a>
   </h3>
   <nav class="menu-list">
     {% for item in site.data.settings.menu %}
-      <a href="{{ site.base.url }}/{{ item.folder }}/{{ item.file }}" class="menu-link">{{ item.name }}</a>
+      <a href="{{ site.url }}/{{ item.folder }}/{{ item.file }}" class="menu-link">{{ item.name }}</a>
     {% endfor %}
 
     {% for item in site.data.settings.social %}
