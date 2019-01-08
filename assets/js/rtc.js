@@ -38,13 +38,19 @@ var rtc = {
     },
     handleRemoteID: function(){
         id = JSON.parse(document.getElementById('friendAddress').value);
-        rtc.peer.setRemoteDescription(JSON.parse(id.sdp)).catch(console.log);
-        for(var i = 0; i < id.ice.length; i++){
-            rtc.peer.addIceCandidate(JSON.parse(id.ice[i])).catch(console.log);
+        if(id.hasOwnProperty('type')){
+            rtc.peer.setRemoteDescription(id).catch(console.log);
+        } else {
+            rtc.peer.setRemoteDescription(JSON.parse(id.sdp)).catch(console.log);
+            for(var i = 0; i < id.ice.length; i++){
+                rtc.peer.addIceCandidate(JSON.parse(id.ice[i])).catch(console.log);
+            }
+            rtc.peer.createAnswer().then(function(desc){
+                document.getElementById('friendAddress').value = JSON.stringify(desc);
+            }).then(
+                function(answer){rtc.peer.setLocalDescription(answer);}
+            );
         }
-        rtc.peer.createAnswer().then(function(desc){
-            document.getElementById('friendAddress').value = JSON.stringify(desc);
-        });
     },
     sendChannelChange: function(){
         console.log('channel state ' + rtc.sendChannel.readyState);
