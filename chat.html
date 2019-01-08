@@ -6,12 +6,13 @@ title: Test rtc chatter
 <p>This is a test app that creates serverless peer to peer chat connections with friends.
     You will need to share the information found with a friend
     or they will have to share with you to make the connection</p>
-<label for="userAddress">Address info to send friend</label>
-<p name="userAddress" id="iceOutput"><i>loading... please wait</i></p>
 <br>
-<label for="friendAddress">Address info for friend</label>
-<textarea name="friendAddress" rows="8" cols="80">Testing</textarea>
-<<button onclick="connect.friend()" type="button" name="connectFriend">Submit</button>
+<label for="friendAddress">Address info to send friend or paste friends info here and click submit</label>
+<textarea id="friendAddress" rows="8" cols="80">Testing</textarea>
+<button onclick="rtc.handleRemoteID()" type="button" name="connectFriend">Connect with info</button>
+<button onclick="rtc.instigateConnection()" type="button" name="getInfo">get local info to send</button>
+<br>
+<video id="remoteVid" playsinline autoplay muted></video>
 
 <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
 <script type="text/javascript" src="{{ site.url }}/assets/js/rtc.js"></script>
