@@ -11,8 +11,9 @@ title: Test rtc chatter
 <textarea id="friendAddress" rows="8" cols="80">Testing</textarea>
 <button onclick="rtc.handleRemoteID()" type="button" name="connectFriend">Connect with info</button>
 <button onclick="rtc.instigateConnection()" type="button" name="getInfo">get local info to send</button>
+<button onclick="rtc.sendData('yo')" type="button" name="getInfo">press this when connected</button>
 <br>
 <video id="remoteVid" playsinline autoplay muted></video>
 
-<script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
+<!--<script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>-->
 <script type="text/javascript" src="{{ site.url }}/assets/js/rtc.js"></script>

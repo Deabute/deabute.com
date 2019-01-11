@@ -10,24 +10,24 @@ var rtc = {
     server: null,
     peer: null,
     remoteConnection: null,
-    sendChannel: null,
+    dataChannel: null,
     localID: {
         sdp: null,
         ice: []
     },
     connectInit: function(){
         rtc.peer = new RTCPeerConnection(rtc.config);
-        rtc.sendChannel = rtc.peer.createDataChannel('sendDataChannel');
+        rtc.dataChannel = rtc.peer.createDataChannel('chat');
         rtc.peer.onicecandidate = function onIce(event) { // on address info being introspected
             if(event.candidate){
+                console.log('got a candidate ice');
                 rtc.localID.ice.push(JSON.stringify(event.candidate));
             } else {
                 var stringifiedID = JSON.stringify(rtc.localID);
                 document.getElementById('friendAddress').value = stringifiedID;
             }
         };
-        rtc.sendChannel.onopen = rtc.sendChannelChange;
-        rtc.sendChannel.onclose = rtc.sendChannelChange;
+        rtc.peer.ondatachannel = rtc.newDataChannel;
     },
     instigateConnection: function(){ // return offer to client so they can send it to remote
         rtc.peer.createOffer().then( function onOffer(desc){
@@ -37,23 +37,46 @@ var rtc = {
         }).catch(console.log);
     },
     handleRemoteID: function(){
-        id = JSON.parse(document.getElementById('friendAddress').value);
-        if(id.hasOwnProperty('type')){
-            rtc.peer.setRemoteDescription(id).catch(console.log);
+        var id = JSON.parse(document.getElementById('friendAddress').value);
+        var sdp = JSON.parse(id.sdp);
+        rtc.peer.setRemoteDescription(sdp).catch(console.log);
+        for(var i = 0; i < id.ice.length; i++){
+            rtc.peer.addIceCandidate(JSON.parse(id.ice[i])).catch(console.log);
+        }
+
+        if(sdp.type === 'answer'){
+            console.log('recieved answer');
         } else {
-            rtc.peer.setRemoteDescription(JSON.parse(id.sdp)).catch(console.log);
-            for(var i = 0; i < id.ice.length; i++){
-                rtc.peer.addIceCandidate(JSON.parse(id.ice[i])).catch(console.log);
-            }
-            rtc.peer.createAnswer().then(function(desc){
-                document.getElementById('friendAddress').value = JSON.stringify(desc);
+            rtc.peer.createAnswer().then(function(answer){
+                return rtc.peer.setLocalDescription(answer);
             }).then(
-                function(answer){rtc.peer.setLocalDescription(answer);}
+                function(){
+                    console.log('set local description');
+                    rtc.localID.sdp = JSON.stringify(rtc.peer.localDescription);
+                    document.getElementById('friendAddress').value = JSON.stringify(rtc.localID);
+                }
             );
         }
     },
-    sendChannelChange: function(){
-        console.log('channel state ' + rtc.sendChannel.readyState);
+    openDataChannel: function(){
+        rtc.dataChannel.send('what the fuck is happening');
+        console.log('channel open');
+    },
+    closeDataChannel: function(){
+        console.log('channel closed');
+    },
+    onMsg: function(event){
+        console.log(event.data);
+    },
+    sendData: function(msg){
+        rtc.dataChannel.send(msg);
+    },
+    newDataChannel: function(event){
+        receiveChannel = event.channel;
+        receiveChannel.onerror = console.log;
+        receiveChannel.onmessage = rtc.onMsg;
+        receiveChannel.onopen = rtc.openDataChannel;
+        receiveChannel.onclose = rtc.closeDataChannel;
     }
 };
 
