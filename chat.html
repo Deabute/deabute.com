@@ -1,19 +1,26 @@
 ---
 layout: page
-title: Test rtc chatter
+title: webRTC Test
 ---
 
-<p>This is a test app that creates serverless peer to peer chat connections with friends.
-    You will need to share the information found with a friend
-    or they will have to share with you to make the connection</p>
+<p>This is a test of webRTC data channels that allows for texting with a friend.
+    You will need to share an "offer" with a friend (ironically via another messaging solution),
+    and they should share an "answer" with you or vise versa.
+    By sharing these two peices of information,
+    your browsers can find a peer to peer connection with one another to start a text chat</p>
 <br>
-<label for="friendAddress">Address info to send friend or paste friends info here and click submit</label>
-<textarea id="friendAddress" rows="8" cols="80">Testing</textarea>
-<button onclick="rtc.handleRemoteID()" type="button" name="connectFriend">Connect with info</button>
-<button onclick="rtc.instigateConnection()" type="button" name="getInfo">get local info to send</button>
-<button onclick="rtc.sendData('yo')" type="button" name="getInfo">press this when connected</button>
+<button onclick="rtc.getOffer()" type="button" name="getInfo">Get Offer</button>
 <br>
-<video id="remoteVid" playsinline autoplay muted></video>
+<p id=offerAnswerResults> offer or answer to copy to friend will show up here<p>
+<br>
+<label for="offerAnswerInput">Paste offer or answer from friend here</label>
+<textarea id="offerAnswerInput" rows="10" cols="80"></textarea>
+<button onclick="rtc.offersAndAnswers()" type="button" name="connectFriend">Connect with info</button>
+<br>
+<div id='receiveBox'></div>
+<textarea id="sendBox" rows="1" cols="80"></textarea>
+<button onclick="app.sendMsg()" type="button" name="getInfo">Send Message</button>
 
+<!--This was tested in Chrome, commenting in line below may increase compatibility-->
 <!--<script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>-->
 <script type="text/javascript" src="{{ site.url }}/assets/js/rtc.js"></script>
