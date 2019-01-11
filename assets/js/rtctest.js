@@ -1,4 +1,4 @@
-// rtc.js ~ copyright 2019 Paul Beaudet ~ MIT License
+// rtctest.js ~ copyright 2019 Paul Beaudet ~ MIT License
 // This test requires at least two browser windows, to open a data connection between two peers
 var rtc = { // stun servers in config allow client to introspect a communication path to offer a remote peer
     config: {'iceServers': [ {'urls': 'stun:stun.stunprotocol.org:3478'}, {'urls': 'stun:stun.l.google.com:19302'} ]},
@@ -27,27 +27,30 @@ var rtc = { // stun servers in config allow client to introspect a communication
     },
     offersAndAnswers: function(){                               // method that gets called in recieving case with shared data provided
         var id = JSON.parse(app.connectInput.value);            // should be provided sdp and ice canidates from remote peer
-        rtc.peer.setRemoteDescription(id.sdp);
+        rtc.peer.setRemoteDescription(id.sdp);                  // apply remote peer's sdp data
         for(var i = 0; i < id.ice.length; i++){
-            rtc.peer.addIceCandidate(id.ice[i]);
+            rtc.peer.addIceCandidate(id.ice[i]);                // add ice canidates to figure a common with least hops
         }
         if(id.sdp.type === 'offer'){                            // create an answer when type is offer
-            rtc.peer.createAnswer().then(function onAnswer(answer){
-                return rtc.peer.setLocalDescription(answer);
+            rtc.peer.createAnswer().then(function onAnswer(answer){ // create answer to remote peer that offered
+                return rtc.peer.setLocalDescription(answer);    // set that offer as our local discripion
             }).then(function onOfferSetDesc(){
-                rtc.localID.sdp = rtc.peer.localDescription;
-            });
-        }
+                rtc.localID.sdp = rtc.peer.localDescription;    // add discription to answer to remote once locally set
+            });                                                 // note answer is shown to user in onicecandidate event above once resolved
+        }                                                       // ice canidates start resolving after local discription is set
     },
-    sendData: function(msg){if(rtc.channelOpen){rtc.dataChannel.send(msg);}},
     newDataChannel: function(event){
-        receiveChannel = event.channel;
+        receiveChannel = event.channel;                                        // recieve channel events handlers created on connection
         receiveChannel.onerror = function onError(){};                         // handling errors could be a good idea
         receiveChannel.onmessage = function onMsg(event){
-            app.appendMsg('Peer: ' + event.data);
+            app.appendMsg('Peer: ' + event.data);                              // onmessage event returns an object
         };
-        receiveChannel.onopen = function onOpen(){rtc.channelOpen = true;};    // how one would handle events upon opening connection
-        receiveChannel.onclose = function onClose(){rtc.channelOpen = false;}; // how one would handle events upon closing connection
+        receiveChannel.onopen = function onOpen(){                             // handle events upon opening connection
+            rtc.channelOpen = true;
+            app.setupBox.innerHTML = '';
+            app.connectionMsg.innerHTML = 'Connected';
+        };
+        receiveChannel.onclose = function onClose(){rtc.channelOpen = false;};// doenst seem to work on closing a tab
     }
 };
 
@@ -56,13 +59,20 @@ var app = {
     sendBox: document.getElementById('sendBox'),
     connectInput: document.getElementById('offerAnswerInput'),
     resultsField: document.getElementById('offerAnswerResults'),
+    connectionMsg: document.getElementById('connectionMsg'),
+    setupBox: document.getElementById('setupBox'),
     init: function(){
         document.addEventListener('DOMContentLoaded', function(){
-            rtc.connectInit();
+            rtc.connectInit();                              // start initializing webRTC objects once dom loads
+        });
+        document.addEventListener('keyup', function(event){ // map enter button to sending message
+            if(event.keyCode === 13){app.sendMsg();}
         });
     },
     sendMsg: function(){
-        rtc.sendData(app.sendBox.value);
+        if(rtc.channelOpen){
+            rtc.dataChannel.send(app.sendBox.value);
+        }
         app.appendMsg('Me  : ' + app.sendBox.value);
         app.sendBox.value = '';
     },
@@ -74,4 +84,4 @@ var app = {
     }
 };
 
-app.init();
+app.init(); // start application

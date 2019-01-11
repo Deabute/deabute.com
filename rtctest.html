@@ -3,24 +3,27 @@ layout: page
 title: webRTC Test
 ---
 
+<div id='setupBox'>
 <p>This is a test of webRTC data channels that allows for texting with a friend.
     You will need to share an "offer" with a friend (ironically via another messaging solution),
     and they should share an "answer" with you or vise versa.
     By sharing these two peices of information,
     your browsers can find a peer to peer connection with one another to start a text chat</p>
-<br>
 <button onclick="rtc.getOffer()" type="button" name="getInfo">Get Offer</button>
-<br>
-<p id=offerAnswerResults> offer or answer to copy to friend will show up here<p>
+<p>Copy and send offer/answer when it appears below to friend {bracket to bracket} </p>
+<p id=offerAnswerResults> offer or answer to copy to friend will show up here</p>
 <br>
 <label for="offerAnswerInput">Paste offer or answer from friend here</label>
 <textarea id="offerAnswerInput" rows="10" cols="80"></textarea>
-<button onclick="rtc.offersAndAnswers()" type="button" name="connectFriend">Connect with info</button>
+<button onclick="rtc.offersAndAnswers()" type="button" name="connectFriend">submit offer or answer</button>
 <br>
+</div>
+
+<h2 id='connectionMsg'></h2>
 <div id='receiveBox'></div>
 <textarea id="sendBox" rows="1" cols="80"></textarea>
 <button onclick="app.sendMsg()" type="button" name="getInfo">Send Message</button>
 
 <!--This was tested in Chrome, commenting in line below may increase compatibility-->
 <!--<script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>-->
-<script type="text/javascript" src="{{ site.url }}/assets/js/rtc.js"></script>
+<script type="text/javascript" src="{{ site.url }}/assets/js/rtctest.js"></script>
