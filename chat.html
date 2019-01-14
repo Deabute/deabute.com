@@ -3,35 +3,21 @@ layout: page
 title: webRTC Test
 ---
 
-<div id='setupBox'>
-<p>This is a test of webRTC data channels that allows for texting with a friend.
-    You will need to share an "offer" with a friend (ironically via another messaging solution),
-    and they should share an "answer" with you or vise versa.
-    By sharing these two peices of information,
-    your browsers can find a peer to peer connection with one another to start a text chat</p>
-<button onclick="rtc.getOffer()" type="button" name="getInfo">Get Offer</button>
-<p>Copy and send offer/answer when it appears below to friend {bracket to bracket} </p>
-<p id=offerAnswerResults> offer or answer to copy to friend will show up here</p>
-<br>
-<label for="offerAnswerInput">Paste offer or answer from friend here</label>
-<textarea id="offerAnswerInput" rows="10" cols="80"></textarea>
-<button onclick="rtc.offersAndAnswers()" type="button" name="connectFriend">submit offer or answer</button>
-<br>
+<div id="setupBox">
+    <p>This is a test of webRTC data channels that allows for texting with a friend.
+    You will need to share a session id with a friend or have one shared with you</p>
+    <p id="sessionid"> <i>loading session id</i> </p>
+    <label for="sessionInput">Paste session from friend</label>
+    <textarea id="sessionInput" rows="1" cols="16"></textarea>
+    <button onclick="rtc.sessionId()" type="button" name="connectFriend">submit</button>
+    <!-- <p id=socketserver>{{ site.socketserver }}</p> -->
+    <p id="socketserver">ws://localhost:3000</p>
 </div>
 
-<h2 id='connectionMsg'></h2>
-<div id='receiveBox'></div>
-<textarea id="sendBox" rows="1" cols="80"></textarea>
-<button onclick="app.sendMsg()" type="button" name="getInfo">Send Message</button>
-
-<!--This was tested in Chrome, commenting in line below may increase compatibility-->
-<!--<script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>-->
-
-{% if jekyll.environment == "production" %}
-<p id=socketserver visibility="hidden">{{ site.socketioserver }}</p>
-<script type="text/javascript" scr="{{ site.url }}/assets/js/socketio.js"></script>
-{% else %}
-<p id=socketserver arai-hidden="true">ws://localhost:3000</p>
-{% endif %}
+<div id="msgArea">
+    <div id="receiveBox"></div>
+    <textarea id="sendBox" rows="1" cols="80"></textarea>
+    <button onclick="app.sendMsg()" type="button" name="getInfo">Send Message</button>
+</div>
 
 <script type="text/javascript" src="{{ site.url }}/assets/js/chat.js"></script>
