@@ -1,5 +1,6 @@
 # Site Build Settings
 url: https://deabute.com
+socketioserver: ws://lonelyfridays.herokuapp.com
 
 # jekyll-paginate configuration
 paginate: 5
