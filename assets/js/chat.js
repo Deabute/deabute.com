@@ -6,8 +6,12 @@ var rtc = { // stun servers in config allow client to introspect a communication
     dataChannel: null,               // object for local data channel end point
     localID: { sdp: null, ice: [] }, // package for user to send off to a friend they want to connect with
     channelOpen: false,              // false: closed data channel, true: open data channel
-    init: function(){
+    init: function(mediaStream){
         rtc.peer = new RTCPeerConnection(rtc.config);           // create new instance for local client
+        if(mediaStream){
+            mediaStream.getTracks().forEach(function(track){rtc.peer.addTrack(track);});
+        }
+        rtc.peer.ontrack = media.ontrack;
         rtc.dataChannel = rtc.peer.createDataChannel('chat');   // Creates data endpoint for client's side of connection
         rtc.peer.onicecandidate = function onIce(event) {       // on address info being introspected (after local discription is set)
             if(event.candidate){                                // canididate property denotes data as multiple canidates can resolve
@@ -105,6 +109,21 @@ var ws = {
     }
 };
 
+var media = {
+    init: function(rtcInit){ // get user permistion to use media
+        navigator.mediaDevices.getUserMedia({audio: true, video: false}).then(function onMedia(mediaStream){
+            // var audioTracks = mediaStream.getAudioTracks();
+            rtcInit(mediaStream);
+        }).catch(function onNoMedia(error){
+            rtcInit(null);
+            console.log(error.message);
+        });
+    },
+    ontrack: function(){
+        document.getElementById('voiceStream').srcObject = event.streams[0];
+    }
+};
+
 var app = {
     chatMode: false, // Determites if showing talkin mode or connecting mode
     receiveBox: document.getElementById('receiveBox'),
@@ -115,10 +134,10 @@ var app = {
     msgArea: document.getElementById('msgArea'),
     init: function(){
         document.addEventListener('DOMContentLoaded', function(){       // wait till dom is loaded before manipulating it
+            media.init(rtc.init);                                       // start making rtc connection once we get media
             app.msgArea.style.visibility = 'hidden';                    // not sure why this doesnt work in html
             ws.init(document.getElementById('socketserver').innerHTML); // grab socket server from compiled jekyll temlpate for this env
             document.getElementById('socketserver').style.visibility = 'hidden'; // hide, not sure how to do this in html
-            rtc.init();                                                 // start initializing webRTC objects once dom loads
         });
         /*document.addEventListener('keyup', function(event){ // map enter button to sending message
             if(event.keyCode === 13){

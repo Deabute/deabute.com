@@ -7,7 +7,7 @@ title: webRTC Test
     <p>This is a test of webRTC data channels that allows for texting with a friend.
     You will need to share a session id with a friend or have one shared with you</p>
     <p id="sessionid"> <i>loading session id</i> </p>
-    <label for="sessionInput">Paste session from friend</label>
+    <label for="sessionInput">Paste friend id</label>
     <textarea id="sessionInput" rows="1" cols="16"></textarea>
     <button onclick="rtc.sessionId()" type="button" name="connectFriend">submit</button>
     <button onclick="ws.match()" type="button" name="randoMatch">Random Match</button>
@@ -19,6 +19,7 @@ title: webRTC Test
 </div>
 
 <div id="msgArea">
+    <audio id="voiceStream">unsuported</audio>
     <div id="receiveBox"></div>
     <textarea id="sendBox" rows="1" cols="80"></textarea>
     <button onclick="app.sendMsg()" type="button" name="getInfo">Send Message</button>
