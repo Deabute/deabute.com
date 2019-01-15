@@ -9,7 +9,7 @@ var rtc = { // stun servers in config allow client to introspect a communication
     init: function(mediaStream){
         rtc.peer = new RTCPeerConnection(rtc.config);           // create new instance for local client
         if(mediaStream){
-            mediaStream.getTracks().forEach(function(track){rtc.peer.addTrack(track);});
+            mediaStream.getAudioTracks().forEach(function(track){rtc.peer.addTrack(track);});
         }
         rtc.peer.ontrack = media.ontrack;
         rtc.dataChannel = rtc.peer.createDataChannel('chat');   // Creates data endpoint for client's side of connection
@@ -119,7 +119,7 @@ var media = {
             console.log(error.message);
         });
     },
-    ontrack: function(){
+    ontrack: function(event){
         document.getElementById('voiceStream').srcObject = event.streams[0];
     }
 };
