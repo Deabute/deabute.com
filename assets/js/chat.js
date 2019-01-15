@@ -13,7 +13,7 @@ var rtc = { // stun servers in config allow client to introspect a communication
             if(event.candidate){                                // canididate property denotes data as multiple canidates can resolve
                 rtc.localID.ice.push(event.candidate);          // Add a canidate to an array that we can package up and show user
             } else {                                            // null event.canidate means we finished recieving canidates
-                ws.instance.send(JSON.stringify({type: 'offer', friend:ws.friend, me: ws.id , offer: rtc.localID}));
+                ws.send({type: 'offer', friend:ws.friend, me: ws.id , offer: rtc.localID});
             } // NOTE we show connection info to share once ice canidates are complete this can be slower to find a route
         };    // Also note that sdp is going to be negotiated first regardless of any media being involved. its faster to resolve
         rtc.peer.ondatachannel = rtc.newDataChannel;            // creates data endpoints for remote peer on rtc connection
@@ -48,8 +48,8 @@ var rtc = { // stun servers in config allow client to introspect a communication
         receiveChannel.onopen = function onOpen(){rtc.channelOpen = true;};    // handle events upon opening connection
         receiveChannel.onclose = function onClose(){rtc.channelOpen = false;}; // doenst seem to work on closing a tab
     },
-    sessionId: function(){                  // what to do when a friends session id is entered
-        ws.friend = app.sessionInput.value; // set id to target friend value to use when ice canidates are gathered
+    sessionId: function(peer){                  // what to do when a friends session id is entered
+        ws.friend = peer ? peer : app.sessionInput.value; // set id to target friend value to use when ice canidates are gathered
         rtc.getOffer();                     // get sdp offer
         app.changeMode();                   // preemptively switch to message view
     }
@@ -66,7 +66,7 @@ var ws = {
             ws.connected = true;
             ws.instance.onmessage = function(event){
                 var res = ws.incoming(event.data);
-                if(res.type){ws.instance.send(JSON.stringify(res));}
+                if(res.type){ws.send(res);}
             };
             ws.onclose = function onSocketClose(){ws.connected = false;};
             ws.onerror = function onSocketError(){console.log(error);};
@@ -83,10 +83,25 @@ var ws = {
         } else if(req.type === 'offer'){
             ws.friend = req.from;
             rtc.offersAndAnswers(req.offer);
+        } else if(req.type === 'rando'){
+            rtc.sessionId(req.peer);
         } else {
             console.log(message);        // will log message regardless of whether it was parsed
         }
         return res;
+    },
+    match: function(){
+        if(ws.id){ws.send({type: 'rando', id: ws.id});}
+    },
+    send: function(msg){
+        try{msg = JSON.stringify(msg);} catch(error){console.log(error);}
+        if(ws.connected){
+            ws.instance.send(msg);
+            return true;
+        } else {
+            console.log('disconnect issue');
+            return false;
+        }
     }
 };
 
