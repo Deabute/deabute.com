@@ -10,8 +10,11 @@ title: webRTC Test
     <label for="sessionInput">Paste session from friend</label>
     <textarea id="sessionInput" rows="1" cols="16"></textarea>
     <button onclick="rtc.sessionId()" type="button" name="connectFriend">submit</button>
-    <p id=socketserver>{{ site.socketserver }}</p>
-    <!-- <p id="socketserver">ws://localhost:3000</p> -->
+    {% if jekyll.environment == "production" %}
+        <p id=socketserver>{{ site.socketserver }}</p>
+    {% else %}
+        <p id="socketserver">ws://localhost:3000</p>
+    {% endif %}
 </div>
 
 <div id="msgArea">

@@ -13,7 +13,7 @@ var rtc = { // stun servers in config allow client to introspect a communication
             if(event.candidate){                                // canididate property denotes data as multiple canidates can resolve
                 rtc.localID.ice.push(event.candidate);          // Add a canidate to an array that we can package up and show user
             } else {                                            // null event.canidate means we finished recieving canidates
-                rtc.sendOfferOrAnswer();
+                ws.instance.send(JSON.stringify({type: 'offer', friend:ws.friend, me: ws.id , offer: rtc.localID}));
             } // NOTE we show connection info to share once ice canidates are complete this can be slower to find a route
         };    // Also note that sdp is going to be negotiated first regardless of any media being involved. its faster to resolve
         rtc.peer.ondatachannel = rtc.newDataChannel;            // creates data endpoints for remote peer on rtc connection
@@ -25,8 +25,7 @@ var rtc = { // stun servers in config allow client to introspect a communication
             rtc.localID.sdp = rtc.peer.localDescription;        // set local discription into something that can be shared
         });
     },
-    offersAndAnswers: function(id){                               // method that gets called in recieving case with shared data provided
-        // var id = JSON.parse(app.connectInput.value);            // should be provided sdp and ice canidates from remote peer
+    offersAndAnswers: function(id){                             // method that gets called in recieving case with shared data provided
         rtc.peer.setRemoteDescription(id.sdp);                  // apply remote peer's sdp data
         for(var i = 0; i < id.ice.length; i++){
             rtc.peer.addIceCandidate(id.ice[i]);                // add ice canidates to figure a common with least hops
@@ -46,30 +45,21 @@ var rtc = { // stun servers in config allow client to introspect a communication
         receiveChannel.onmessage = function onMsg(event){
             app.appendMsg('Peer: ' + event.data);                              // onmessage event returns an object
         };
-        receiveChannel.onopen = function onOpen(){                             // handle events upon opening connection
-            rtc.channelOpen = true;
-
-        };
-        receiveChannel.onclose = function onClose(){rtc.channelOpen = false;};// doenst seem to work on closing a tab
+        receiveChannel.onopen = function onOpen(){rtc.channelOpen = true;};    // handle events upon opening connection
+        receiveChannel.onclose = function onClose(){rtc.channelOpen = false;}; // doenst seem to work on closing a tab
     },
-    sessionId: function(){
-        // ws.instance.send(JSON.stringify({type: 'token', data:app.sessionInput.value}));
-        ws.friend = app.sessionInput.value;
-        rtc.getOffer();
-        app.changeMode();
-    },
-    sendOfferOrAnswer: function(){
-        var responseString = JSON.stringify(rtc.localID); // show user info to share with friend
-        ws.instance.send(JSON.stringify({type: 'offer', friend:ws.friend, me: ws.id , offer: rtc.localID}));
-
+    sessionId: function(){                  // what to do when a friends session id is entered
+        ws.friend = app.sessionInput.value; // set id to target friend value to use when ice canidates are gathered
+        rtc.getOffer();                     // get sdp offer
+        app.changeMode();                   // preemptively switch to message view
     }
 };
 
 var ws = {
-    id: null,
-    friend: null,
-    instance: null,
-    connected: false,
+    id: null,          // id of this connection set by server
+    friend: null,      // id of peer to connect with
+    instance: null,    // placeholder for websocket object
+    connected: false,  // set to true when connected to server
     init: function(server){
         ws.instance = new WebSocket(server);
         ws.instance.onopen = function(event){
@@ -78,26 +68,30 @@ var ws = {
                 var res = ws.incoming(event.data);
                 if(res.type){ws.instance.send(JSON.stringify(res));}
             };
+            ws.onclose = function onSocketClose(){ws.connected = false;};
+            ws.onerror = function onSocketError(){console.log(error);};
         };
     },
-    incoming: function(message){
-        var req = JSON.parse(message);
-        var res = {type: null};
+    incoming: function(message){         // handle incoming socket messages
+        var req = {type: null};          // request
+        try {req = JSON.parse(message);} // probably should be wrapped in error handler
+        catch(error){}                   // if error we don't care there is a default object
+        var res = {type: null};          // response
         if(req.type === 'token'){
             ws.id = req.data;
-            app.sessionID.innerHTML = req.data;
+            app.sessionID.innerHTML = req.data; // show "session id" to share turn out to conviently double a client id
         } else if(req.type === 'offer'){
             ws.friend = req.from;
             rtc.offersAndAnswers(req.offer);
         } else {
-            console.log(message);
+            console.log(message);        // will log message regardless of whether it was parsed
         }
         return res;
     }
 };
 
 var app = {
-    chatMode: false,
+    chatMode: false, // Determites if showing talkin mode or connecting mode
     receiveBox: document.getElementById('receiveBox'),
     sendBox: document.getElementById('sendBox'),
     sessionID: document.getElementById('sessionid'),
@@ -105,11 +99,11 @@ var app = {
     setupBox: document.getElementById('setupBox'),
     msgArea: document.getElementById('msgArea'),
     init: function(){
-        document.addEventListener('DOMContentLoaded', function(){
-            app.msgArea.style.visibility = 'hidden';
-            ws.init(document.getElementById('socketserver').innerHTML);
-            document.getElementById('socketserver').style.visibility = 'hidden';
-            rtc.init();                              // start initializing webRTC objects once dom loads
+        document.addEventListener('DOMContentLoaded', function(){       // wait till dom is loaded before manipulating it
+            app.msgArea.style.visibility = 'hidden';                    // not sure why this doesnt work in html
+            ws.init(document.getElementById('socketserver').innerHTML); // grab socket server from compiled jekyll temlpate for this env
+            document.getElementById('socketserver').style.visibility = 'hidden'; // hide, not sure how to do this in html
+            rtc.init();                                                 // start initializing webRTC objects once dom loads
         });
         /*document.addEventListener('keyup', function(event){ // map enter button to sending message
             if(event.keyCode === 13){
@@ -121,20 +115,22 @@ var app = {
             }
         });*/
     },
-    sendMsg: function(){
+    sendMsg: function(){ // send messages to peer
         if(rtc.channelOpen){
             rtc.dataChannel.send(app.sendBox.value);
+            app.appendMsg('Me  : ' + app.sendBox.value);
+            app.sendBox.value = '';
+        } else {
+            app.appendMsg('disconneced from peer');
         }
-        app.appendMsg('Me  : ' + app.sendBox.value);
-        app.sendBox.value = '';
     },
-    appendMsg: function(msg){
+    appendMsg: function(msg){  // add messages to message box
         var line = document.createElement('p');
         var txtNode = document.createTextNode(msg);
         line.appendChild(txtNode);
         app.receiveBox.appendChild(line);
     },
-    changeMode: function(){
+    changeMode: function(){ // change between chat or connect view
         app.chatMode = !app.chatMode;
         if(app.chatMode){
             app.msgArea.style.visibility = 'visible';
