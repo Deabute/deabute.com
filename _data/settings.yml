@@ -6,9 +6,8 @@ disqus:
 google-ID: 'UA-116215456-1'
 
 menu:
-- {name: 'Projects', folder: 'pages', file: 'projects.html'}
+- {name: 'Blog', folder: 'pages', file: 'projects.html'}
 - {name: 'About', folder: 'pages', file: 'about.html'}
-- {name: 'Contact', folder: 'pages', file: 'contact.html'}
 
 # Customize site text
 pagination:

@@ -2,7 +2,7 @@
 layout: post
 title: "Obstructive Unit Testing"
 author: "Paul Beaudet"
-categories: projects
+categories: archive
 tags: []
 image: jitploy_cover_photo.jpg
 ---

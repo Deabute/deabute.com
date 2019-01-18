@@ -5,4 +5,4 @@ title: Deabute Innovation
 
 ## About the Company
 
-Founded in 2017 by Paul Beaudet. Deabute is currently exploring opportunities in provided pipelining technologies for developer deployment operations.
+Founded in 2019 by Paul Beaudet. Deabute's empowers individuals with technology. Specifically working on problems in communications tech.
