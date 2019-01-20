@@ -8,10 +8,7 @@ var rtc = { // stun servers in config allow client to introspect a communication
     channelOpen: false,              // false: closed data channel, true: open data channel
     init: function(mediaStream){
         rtc.peer = new RTCPeerConnection(rtc.config);           // create new instance for local client
-        if(mediaStream){
-            mediaStream.getAudioTracks().forEach(function(track){rtc.peer.addTrack(track);});
-        }
-        rtc.peer.ontrack = media.ontrack;
+        rtc.handleMedia(mediaStream);                           // function for adding media tracks to our rtc connection
         rtc.dataChannel = rtc.peer.createDataChannel('chat');   // Creates data endpoint for client's side of connection
         rtc.peer.onicecandidate = function onIce(event) {       // on address info being introspected (after local discription is set)
             if(event.candidate){                                // canididate property denotes data as multiple canidates can resolve
@@ -22,8 +19,26 @@ var rtc = { // stun servers in config allow client to introspect a communication
         };    // Also note that sdp is going to be negotiated first regardless of any media being involved. its faster to resolve
         rtc.peer.ondatachannel = rtc.newDataChannel;            // creates data endpoints for remote peer on rtc connection
     },
+    handleMedia: function(mediaStream){
+        if(mediaStream){
+            // rtc.peer.addStream(mediaStream);
+            var audioTracks = mediaStream.getAudioTracks();
+            // audioTracks.forEach(function(track){console.log(track);});
+            if(audioTracks.length){
+                if(audioTracks[0].enabled){}
+                else{console.log('Microphone muted');}
+                rtc.peer.addTrack(audioTracks[0], mediaStream);
+                // audioTracks.forEach(function(track){rtc.peer.addTrack(track, mediaStream);});
+            } else {console.log('woah! no audio');}
+        }
+        // rtc.peer.ontrack = media.ontrack;
+        rtc.peer.addEventListener('track', media.ontrack);
+    },
     getOffer: function(){                                       // extend offer to client so they can send it to remote
-        rtc.peer.createOffer().then( function onOffer(desc){    // get sdp data to show user, that will share with a friend
+        rtc.peer.createOffer({
+            offerToReceiveAudio: 1,
+            offerToReceiveVideo: 0
+        }).then( function onOffer(desc){    // get sdp data to show user, that will share with a friend
             return rtc.peer.setLocalDescription(desc);          // note what sdp data self will use
         }).then( function onSet(){
             rtc.localID.sdp = rtc.peer.localDescription;        // set local discription into something that can be shared
@@ -110,6 +125,7 @@ var ws = {
 };
 
 var media = {
+    output: document.getElementById('voiceStream'),
     init: function(rtcInit){ // get user permistion to use media
         navigator.mediaDevices.getUserMedia({audio: true, video: false}).then(function onMedia(mediaStream){
             // var audioTracks = mediaStream.getAudioTracks();
@@ -118,9 +134,14 @@ var media = {
             rtcInit(null);
             console.log(error.message);
         });
+        media.output.addEventListener('loadedmetadata', function(event){
+            console.log('maybe a stream was added?: ' + JSON.stringify(event));
+        });
     },
     ontrack: function(event){
-        document.getElementById('voiceStream').srcObject = event.streams[0];
+        console.log(JSON.stringify(event));
+        media.output.srcObject = event.streams[0];
+        // document.getElementById('voiceStream').src = URL.createObjectURL(event.stream);
     }
 };
 
@@ -134,7 +155,8 @@ var app = {
     msgArea: document.getElementById('msgArea'),
     init: function(){
         document.addEventListener('DOMContentLoaded', function(){       // wait till dom is loaded before manipulating it
-            media.init(rtc.init);                                       // start making rtc connection once we get media
+            // media.init(rtc.init);                                       // start making rtc connection once we get media
+            rtc.init();
             app.msgArea.style.visibility = 'hidden';                    // not sure why this doesnt work in html
             ws.init(document.getElementById('socketserver').innerHTML); // grab socket server from compiled jekyll temlpate for this env
             document.getElementById('socketserver').style.visibility = 'hidden'; // hide, not sure how to do this in html

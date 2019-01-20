@@ -14,12 +14,15 @@ title: webRTC Test
     {% if jekyll.environment == "production" %}
         <p id=socketserver>{{ site.socketserver }}</p>
     {% else %}
-        <p id="socketserver">ws://localhost:3000</p>
+        <p id="socketserver">ws://{{ site.host }}:3000</p>
     {% endif %}
+
 </div>
 
+<video id="voiceStream">unsuported</video>
+
 <div id="msgArea">
-    <audio id="voiceStream">unsuported</audio>
+
     <div id="receiveBox"></div>
     <textarea id="sendBox" rows="1" cols="80"></textarea>
     <button onclick="app.sendMsg()" type="button" name="getInfo">Send Message</button>
