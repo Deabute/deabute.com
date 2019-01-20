@@ -3,21 +3,19 @@
 var rtc = { // stun servers in config allow client to introspect a communication path to offer a remote peer
     config: {'iceServers': [ {'urls': 'stun:stun.stunprotocol.org:3478'}, {'urls': 'stun:stun.l.google.com:19302'} ]},
     peer: null,                      // placeholder for parent webRTC object instance
-    dataChannel: null,               // object for local data channel end point
     localID: { sdp: null, ice: [] }, // package for user to send off to a friend they want to connect with
-    channelOpen: false,              // false: closed data channel, true: open data channel
     init: function(mediaStream){
         rtc.peer = new RTCPeerConnection(rtc.config);           // create new instance for local client
         rtc.handleMedia(mediaStream);                           // function for adding media tracks to our rtc connection
-        rtc.dataChannel = rtc.peer.createDataChannel('chat');   // Creates data endpoint for client's side of connection
+        dataPeer.channel = rtc.peer.createDataChannel('chat');   // Creates data endpoint for client's side of connection
         rtc.peer.onicecandidate = function onIce(event) {       // on address info being introspected (after local discription is set)
             if(event.candidate){                                // canididate property denotes data as multiple canidates can resolve
                 rtc.localID.ice.push(event.candidate);          // Add a canidate to an array that we can package up and show user
             } else {                                            // null event.canidate means we finished recieving canidates
-                ws.send({type: 'offer', friend:ws.friend, me: ws.id , offer: rtc.localID});
+                ws.send({type: 'offer', friend:ws.friend, offer: rtc.localID});
             } // NOTE we show connection info to share once ice canidates are complete this can be slower to find a route
         };    // Also note that sdp is going to be negotiated first regardless of any media being involved. its faster to resolve
-        rtc.peer.ondatachannel = rtc.newDataChannel;            // creates data endpoints for remote peer on rtc connection
+        rtc.peer.ondatachannel = dataPeer.newChannel;            // creates data endpoints for remote peer on rtc connection
     },
     handleMedia: function(mediaStream){
         if(mediaStream){
@@ -54,29 +52,57 @@ var rtc = { // stun servers in config allow client to introspect a communication
                 return rtc.peer.setLocalDescription(answer);    // set that offer as our local discripion
             }).then(function onOfferSetDesc(){
                 rtc.localID.sdp = rtc.peer.localDescription;    // add discription to answer to remote once locally set
-                app.changeMode();
             });                                                 // note answer is shown to user in onicecandidate event above once resolved
         }                                                       // ice canidates start resolving after local discription is set
     },
-    newDataChannel: function(event){
+    sessionId: function(peer){                            // what to do when a friends session id is entered
+        ws.friend = peer ? peer : app.sessionInput.value; // set id to target friend value to use when ice canidates are gathered
+        rtc.getOffer();                                   // get sdp offer
+    }
+};
+
+var dataPeer = {
+    channel: null,
+    connected: false,
+    newChannel: function(event){
         receiveChannel = event.channel;                                        // recieve channel events handlers created on connection
         receiveChannel.onerror = function onError(){};                         // handling errors could be a good idea
         receiveChannel.onmessage = function onMsg(event){
-            app.appendMsg('Peer: ' + event.data);                              // onmessage event returns an object
+            var res = dataPeer.incoming(event.data);
+            if(res.type){ws.send(res);}
         };
-        receiveChannel.onopen = function onOpen(){rtc.channelOpen = true;};    // handle events upon opening connection
-        receiveChannel.onclose = function onClose(){rtc.channelOpen = false;}; // doenst seem to work on closing a tab
+        receiveChannel.onopen = function onOpen(){dataPeer.connected = true;};    // handle events upon opening connection
+        receiveChannel.onclose = function onClose(){dataPeer.connected = false;}; // doenst seem to work on closing a tab
     },
-    sessionId: function(peer){                  // what to do when a friends session id is entered
-        ws.friend = peer ? peer : app.sessionInput.value; // set id to target friend value to use when ice canidates are gathered
-        rtc.getOffer();                     // get sdp offer
-        app.changeMode();                   // preemptively switch to message view
+    incoming: function(message){               // handle incoming socket messages
+        var req = {type: null};                // request
+        try {req = JSON.parse(message);}       // probably should be wrapped in error handler
+        catch(error){}                         // if error we don't care there is a default object
+        var res = {type: null};                // response
+        if(req.type === 'msg'){
+            app.appendMsg('Peer: ' + req.msg); // onmessage event returns an object
+        } else if(req.type === 'disconnect'){
+            app.changeMode();
+        } else {
+            console.log(message);        // will log message regardless of whether it was parsed
+        }
+        return res;
+    },
+    send: function(sendObj){
+        try{sendObj = JSON.stringify(sendObj);} catch(error){console.log(error);}
+        if(dataPeer.connected){
+            dataPeer.channel.send(sendObj);
+            return true;
+        } else {
+            console.log('disconnected from peer');
+            return false;
+        }
     }
 };
 
 var ws = {
     id: null,          // id of this connection set by server
-    friend: null,      // id of peer to connect with
+    friend: '',        // id of peer to connect with
     instance: null,    // placeholder for websocket object
     connected: false,  // set to true when connected to server
     init: function(server){
@@ -104,13 +130,18 @@ var ws = {
             rtc.offersAndAnswers(req.offer);
         } else if(req.type === 'rando'){
             rtc.sessionId(req.peer);
+        } else if(req.type === 'match'){
+            app.changeMode();
+        } else if(req.type === 'nomatch'){
+            app.inputStage++;
+            if(app.inputStage > app.inputStage.length){app.inputStage = 0;}
+            app.inputLabelEl.innerHTML = app.inputLabelText[app.inputStage];
+        } else if(req.type === 'disconnect'){
+            app.changeMode();
         } else {
             console.log(message);        // will log message regardless of whether it was parsed
         }
         return res;
-    },
-    match: function(){
-        if(ws.id){ws.send({type: 'rando', id: ws.id});}
     },
     send: function(msg){
         try{msg = JSON.stringify(msg);} catch(error){console.log(error);}
@@ -146,6 +177,13 @@ var media = {
 };
 
 var app = {
+    inputStage: 0,
+    inputLabelText: [
+        'Paste friend id',
+        'Sorry try a different id',
+        'They might be chatting with someone'
+    ],
+    inputLabelEl: document.getElementById('inputLabel'),
     chatMode: false, // Determites if showing talkin mode or connecting mode
     receiveBox: document.getElementById('receiveBox'),
     sendBox: document.getElementById('sendBox'),
@@ -171,14 +209,18 @@ var app = {
             }
         });*/
     },
+    randoConnect: function(){
+
+    },
     sendMsg: function(){ // send messages to peer
-        if(rtc.channelOpen){
-            rtc.dataChannel.send(app.sendBox.value);
-            app.appendMsg('Me  : ' + app.sendBox.value);
-            app.sendBox.value = '';
-        } else {
-            app.appendMsg('disconneced from peer');
-        }
+        dataPeer.send({type: 'msg', msg: app.sendBox.value});
+        app.appendMsg('Me  : ' + app.sendBox.value);
+        app.sendBox.value = '';
+    },
+    endChat: function(){
+        dataPeer.send({type: 'disconnect'});
+        ws.send({type: 'disconnect'});
+        app.changeMode();
     },
     appendMsg: function(msg){  // add messages to message box
         var line = document.createElement('p');
@@ -192,6 +234,7 @@ var app = {
             app.msgArea.style.visibility = 'visible';
             app.setupBox.style.visibility = 'hidden';
         } else {
+            app.receiveBox.innerHTML = '';
             app.msgArea.style.visibility = 'hidden';
             app.setupBox.style.visibility = 'visible';
         }

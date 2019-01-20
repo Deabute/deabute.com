@@ -1,16 +1,15 @@
 ---
 layout: page
-title: webRTC Test
+title:
 ---
 
 <div id="setupBox">
     <p>This is a test of webRTC data channels that allows for texting with a friend.
     You will need to share a session id with a friend or have one shared with you</p>
     <p id="sessionid"> <i>loading session id</i> </p>
-    <label for="sessionInput">Paste friend id</label>
+    <label for="sessionInput" id="inputLabel">Paste friend id</label>
     <textarea id="sessionInput" rows="1" cols="16"></textarea>
-    <button onclick="rtc.sessionId()" type="button" name="connectFriend">submit</button>
-    <button onclick="ws.match()" type="button" name="randoMatch">Random Match</button>
+    <button onclick="rtc.sessionId()" type="button" name="connectFriend">connect (enter nothing for random)</button>
     {% if jekyll.environment == "production" %}
         <p id=socketserver>{{ site.socketserver }}</p>
     {% else %}
@@ -22,8 +21,8 @@ title: webRTC Test
 <video id="voiceStream">unsuported</video>
 
 <div id="msgArea">
-
     <div id="receiveBox"></div>
+    <button onclick="app.endChat()" type="button" name="getInfo">End Call</button>
     <textarea id="sendBox" rows="1" cols="80"></textarea>
     <button onclick="app.sendMsg()" type="button" name="getInfo">Send Message</button>
 </div>
