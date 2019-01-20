@@ -4,7 +4,7 @@ var rtc = { // stun servers in config allow client to introspect a communication
     config: {'iceServers': [ {'urls': 'stun:stun.stunprotocol.org:3478'}, {'urls': 'stun:stun.l.google.com:19302'} ]},
     peer: null,                      // placeholder for parent webRTC object instance
     localID: { sdp: null, ice: [] }, // package for user to send off to a friend they want to connect with
-    init: function(mediaStream){
+    init: function(mediaStream, onSetupCB){
         rtc.peer = new RTCPeerConnection(rtc.config);           // create new instance for local client
         rtc.handleMedia(mediaStream);                           // function for adding media tracks to our rtc connection
         dataPeer.channel = rtc.peer.createDataChannel('chat');   // Creates data endpoint for client's side of connection
@@ -16,6 +16,7 @@ var rtc = { // stun servers in config allow client to introspect a communication
             } // NOTE we show connection info to share once ice canidates are complete this can be slower to find a route
         };    // Also note that sdp is going to be negotiated first regardless of any media being involved. its faster to resolve
         rtc.peer.ondatachannel = dataPeer.newChannel;            // creates data endpoints for remote peer on rtc connection
+        onSetupCB();                                             // create and offer or answer depending on what intiated
     },
     handleMedia: function(mediaStream){
         if(mediaStream){
@@ -32,11 +33,9 @@ var rtc = { // stun servers in config allow client to introspect a communication
         // rtc.peer.ontrack = media.ontrack;
         rtc.peer.addEventListener('track', media.ontrack);
     },
-    getOffer: function(){                                       // extend offer to client so they can send it to remote
-        rtc.peer.createOffer({
-            offerToReceiveAudio: 1,
-            offerToReceiveVideo: 0
-        }).then( function onOffer(desc){    // get sdp data to show user, that will share with a friend
+    createOffer: function(){                                    // extend offer to client so they can send it to remote
+        var offerConfig = { offerToReceiveAudio: 1, offerToReceiveVideo: 0 }; // can be passed to createOffer
+        rtc.peer.createOffer().then( function onOffer(desc){    // get sdp data to show user, that will share with a friend
             return rtc.peer.setLocalDescription(desc);          // note what sdp data self will use
         }).then( function onSet(){
             rtc.localID.sdp = rtc.peer.localDescription;        // set local discription into something that can be shared
@@ -55,9 +54,9 @@ var rtc = { // stun servers in config allow client to introspect a communication
             });                                                 // note answer is shown to user in onicecandidate event above once resolved
         }                                                       // ice canidates start resolving after local discription is set
     },
-    sessionId: function(peer){                            // what to do when a friends session id is entered
+    connect: function(peer){                            // what to do when a friends session id is entered
         ws.friend = peer ? peer : app.sessionInput.value; // set id to target friend value to use when ice canidates are gathered
-        rtc.getOffer();                                   // get sdp offer
+        rtc.init(null, rtc.createOffer);
     }
 };
 
@@ -83,6 +82,7 @@ var dataPeer = {
             app.appendMsg('Peer: ' + req.msg); // onmessage event returns an object
         } else if(req.type === 'disconnect'){
             app.changeMode();
+            rtc.peer.close();
         } else {
             console.log(message);        // will log message regardless of whether it was parsed
         }
@@ -127,7 +127,13 @@ var ws = {
             app.sessionID.innerHTML = req.data; // show "session id" to share turn out to conviently double a client id
         } else if(req.type === 'offer'){
             ws.friend = req.from;
-            rtc.offersAndAnswers(req.offer);
+            if(req.offer.sdp.type === 'offer'){
+                rtc.init(null, function(){
+                    rtc.offersAndAnswers(req.offer);
+                });
+            } else {
+                rtc.offersAndAnswers(req.offer);
+            }
         } else if(req.type === 'rando'){
             rtc.sessionId(req.peer);
         } else if(req.type === 'match'){
@@ -194,7 +200,7 @@ var app = {
     init: function(){
         document.addEventListener('DOMContentLoaded', function(){       // wait till dom is loaded before manipulating it
             // media.init(rtc.init);                                       // start making rtc connection once we get media
-            rtc.init();
+            // rtc.init();
             app.msgArea.style.visibility = 'hidden';                    // not sure why this doesnt work in html
             ws.init(document.getElementById('socketserver').innerHTML); // grab socket server from compiled jekyll temlpate for this env
             document.getElementById('socketserver').style.visibility = 'hidden'; // hide, not sure how to do this in html
@@ -220,6 +226,7 @@ var app = {
     endChat: function(){
         dataPeer.send({type: 'disconnect'});
         ws.send({type: 'disconnect'});
+        rtc.peer.close();
         app.changeMode();
     },
     appendMsg: function(msg){  // add messages to message box

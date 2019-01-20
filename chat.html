@@ -9,7 +9,7 @@ title:
     <p id="sessionid"> <i>loading session id</i> </p>
     <label for="sessionInput" id="inputLabel">Paste friend id</label>
     <textarea id="sessionInput" rows="1" cols="16"></textarea>
-    <button onclick="rtc.sessionId()" type="button" name="connectFriend">connect (enter nothing for random)</button>
+    <button onclick="rtc.connect()" type="button" name="connectFriend">connect (enter nothing for random)</button>
     {% if jekyll.environment == "production" %}
         <p id=socketserver>{{ site.socketserver }}</p>
     {% else %}
