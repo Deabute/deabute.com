@@ -3,20 +3,17 @@
 var rtc = { // stun servers in config allow client to introspect a communication path to offer a remote peer
     config: {'iceServers': [ {'urls': 'stun:stun.stunprotocol.org:3478'}, {'urls': 'stun:stun.l.google.com:19302'} ]},
     peer: null,                      // placeholder for parent webRTC object instance
-    localID: { sdp: null, ice: [] }, // package for user to send off to a friend they want to connect with
     init: function(mediaStream, onSetupCB){
         rtc.peer = new RTCPeerConnection(rtc.config);           // create new instance for local client
         rtc.handleMedia(mediaStream);                           // function for adding media tracks to our rtc connection
-        dataPeer.channel = rtc.peer.createDataChannel('chat');   // Creates data endpoint for client's side of connection
+        dataPeer.channel = rtc.peer.createDataChannel('chat');  // Creates data endpoint for client's side of connection
         rtc.peer.onicecandidate = function onIce(event) {       // on address info being introspected (after local discription is set)
             if(event.candidate){                                // canididate property denotes data as multiple canidates can resolve
-                rtc.localID.ice.push(event.candidate);          // Add a canidate to an array that we can package up and show user
-            } else {                                            // null event.canidate means we finished recieving canidates
-                ws.send({type: 'offer', friend:ws.friend, offer: rtc.localID});
-            } // NOTE we show connection info to share once ice canidates are complete this can be slower to find a route
+                ws.send({type: 'ice', canidate: event.candidate});
+            }                                                   // null event.canidate means we finished recieving canidates
         };    // Also note that sdp is going to be negotiated first regardless of any media being involved. its faster to resolve
-        rtc.peer.ondatachannel = dataPeer.newChannel;            // creates data endpoints for remote peer on rtc connection
-        onSetupCB();                                             // create and offer or answer depending on what intiated
+        rtc.peer.ondatachannel = dataPeer.newChannel;           // creates data endpoints for remote peer on rtc connection
+        onSetupCB();                                            // create and offer or answer depending on what intiated
     },
     handleMedia: function(mediaStream){
         if(mediaStream){
@@ -38,24 +35,22 @@ var rtc = { // stun servers in config allow client to introspect a communication
         rtc.peer.createOffer().then( function onOffer(desc){    // get sdp data to show user, that will share with a friend
             return rtc.peer.setLocalDescription(desc);          // note what sdp data self will use
         }).then( function onSet(){
-            rtc.localID.sdp = rtc.peer.localDescription;        // set local discription into something that can be shared
+            // rtc.localID.sdp = rtc.peer.localDescription;        // set local discription into something that can be shared
+            ws.send({type: 'sdp', sdp: rtc.peer.localDescription, peerID: ws.friend}); // send offer to friend
         });
     },
-    offersAndAnswers: function(id){                             // method that gets called in recieving case with shared data provided
-        rtc.peer.setRemoteDescription(id.sdp);                  // apply remote peer's sdp data
-        for(var i = 0; i < id.ice.length; i++){
-            rtc.peer.addIceCandidate(id.ice[i]);                // add ice canidates to figure a common with least hops
-        }
-        if(id.sdp.type === 'offer'){                            // create an answer when type is offer
+    onSdp: function(sdp){
+        rtc.peer.setRemoteDescription(sdp);
+        if(sdp.type === 'offer'){                               // create an answer when type is offer
             rtc.peer.createAnswer().then(function onAnswer(answer){ // create answer to remote peer that offered
                 return rtc.peer.setLocalDescription(answer);    // set that offer as our local discripion
             }).then(function onOfferSetDesc(){
-                rtc.localID.sdp = rtc.peer.localDescription;    // add discription to answer to remote once locally set
+                ws.send({type: 'sdp', sdp: rtc.peer.localDescription, peerID: ws.friend}); // send offer to friend
             });                                                 // note answer is shown to user in onicecandidate event above once resolved
         }                                                       // ice canidates start resolving after local discription is set
     },
-    connect: function(peer){                            // what to do when a friends session id is entered
-        ws.friend = peer ? peer : app.sessionInput.value; // set id to target friend value to use when ice canidates are gathered
+    connect: function(peer){                                    // what to do when a friends session id is entered
+        ws.friend = peer ? peer : app.sessionInput.value;       // set id to target friend value to use when ice canidates are gathered
         rtc.init(null, rtc.createOffer);
     }
 };
@@ -64,8 +59,8 @@ var dataPeer = {
     channel: null,
     connected: false,
     newChannel: function(event){
-        receiveChannel = event.channel;                                        // recieve channel events handlers created on connection
-        receiveChannel.onerror = function onError(){};                         // handling errors could be a good idea
+        receiveChannel = event.channel;                          // recieve channel events handlers created on connection
+        receiveChannel.onerror = function onError(){};           // handling errors could be a good idea
         receiveChannel.onmessage = function onMsg(event){
             var res = dataPeer.incoming(event.data);
             if(res.type){ws.send(res);}
@@ -81,6 +76,7 @@ var dataPeer = {
         if(req.type === 'msg'){
             app.appendMsg('Peer: ' + req.msg); // onmessage event returns an object
         } else if(req.type === 'disconnect'){
+            ws.friend = '';
             app.changeMode();
             rtc.peer.close();
         } else {
@@ -125,17 +121,15 @@ var ws = {
         if(req.type === 'token'){
             ws.id = req.data;
             app.sessionID.innerHTML = req.data; // show "session id" to share turn out to conviently double a client id
-        } else if(req.type === 'offer'){
-            ws.friend = req.from;
-            if(req.offer.sdp.type === 'offer'){
-                rtc.init(null, function(){
-                    rtc.offersAndAnswers(req.offer);
+        } else if(req.type === 'sdp'){
+            ws.friend = req.peerID;
+            if(req.sdp.type === 'offer'){
+                rtc.init(null, function onInit(){
+                    rtc.onSdp(req.sdp);
                 });
-            } else {
-                rtc.offersAndAnswers(req.offer);
-            }
-        } else if(req.type === 'rando'){
-            rtc.sessionId(req.peer);
+            } else { rtc.onSdp(req.sdp);}
+        } else if(req.type === 'ice'){
+            rtc.peer.addIceCandidate(req.canidate);
         } else if(req.type === 'match'){
             app.changeMode();
         } else if(req.type === 'nomatch'){
@@ -215,9 +209,6 @@ var app = {
             }
         });*/
     },
-    randoConnect: function(){
-
-    },
     sendMsg: function(){ // send messages to peer
         dataPeer.send({type: 'msg', msg: app.sendBox.value});
         app.appendMsg('Me  : ' + app.sendBox.value);
@@ -226,6 +217,7 @@ var app = {
     endChat: function(){
         dataPeer.send({type: 'disconnect'});
         ws.send({type: 'disconnect'});
+        ws.friend = '';
         rtc.peer.close();
         app.changeMode();
     },
