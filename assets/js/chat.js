@@ -178,11 +178,9 @@ var app = {
     sessionID: document.getElementById('sessionid'),
     sessionInput: document.getElementById('sessionInput'),
     setupBox: document.getElementById('setupBox'),
-    msgArea: document.getElementById('msgArea'),
     init: function(){
         document.addEventListener('DOMContentLoaded', function(){       // wait till dom is loaded before manipulating it
             media.init();                                               // start making rtc connection once we get media
-            app.msgArea.style.visibility = 'hidden';                    // not sure why this doesnt work in html
             ws.init(document.getElementById('socketserver').innerHTML); // grab socket server from compiled jekyll temlpate for this env
             document.getElementById('socketserver').style.visibility = 'hidden'; // hide, not sure how to do this in html
         });
@@ -193,10 +191,8 @@ var app = {
     mode: function(){ // Enter name / connect mic then enter friend name / connect
         if(app.chatMode){
             app.endChat();
-            app.modeButton.innerHTML = 'connect';
         } else {
             rtc.connect();
-            app.modeButton.innerHTML = 'disconnect';
         }
     },
     endChat: function(){
@@ -210,10 +206,10 @@ var app = {
     changeMode: function(){ // change between chat or connect view
         app.chatMode = !app.chatMode;
         if(app.chatMode){
-            app.msgArea.style.visibility = 'visible';
+            app.modeButton.innerHTML = 'disconnect';
             app.setupBox.style.visibility = 'hidden';
         } else {
-            app.msgArea.style.visibility = 'hidden';
+            app.modeButton.innerHTML = 'connect';
             app.setupBox.style.visibility = 'visible';
         }
     }
