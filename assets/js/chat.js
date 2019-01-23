@@ -1,4 +1,5 @@
 // rtctest.js ~ copyright 2019 Paul Beaudet ~ MIT License
+// rtcSignal version - 1.0.13
 // This test requires at least two browser windows, to open a data connection between two peers
 var rtc = { // stun servers in config allow client to introspect a communication path to offer a remote peer
     config: {'iceServers': [ {'urls': 'stun:stun.stunprotocol.org:3478'}, {'urls': 'stun:stun.l.google.com:19302'} ]},
@@ -178,7 +179,7 @@ var app = {
     msgArea: document.getElementById('msgArea'),
     init: function(){
         document.addEventListener('DOMContentLoaded', function(){       // wait till dom is loaded before manipulating it
-            // media.init();                                               // start making rtc connection once we get media
+            media.init();                                               // start making rtc connection once we get media
             app.msgArea.style.visibility = 'hidden';                    // not sure why this doesnt work in html
             ws.init(document.getElementById('socketserver').innerHTML); // grab socket server from compiled jekyll temlpate for this env
             document.getElementById('socketserver').style.visibility = 'hidden'; // hide, not sure how to do this in html
