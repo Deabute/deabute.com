@@ -167,8 +167,14 @@ var app = {
         'Sorry try a different id',
         'They might be chatting with someone'
     ],
+    modes: [
+        'Enter name and connect mic',
+        'Enter friend name and talk (empty for whomever)',
+        'end call'
+    ],
     inputLabelEl: document.getElementById('inputLabel'),
     chatMode: false, // Determites if showing talkin mode or connecting mode
+    modeButton: document.getElementById('modeButton'),
     sessionID: document.getElementById('sessionid'),
     sessionInput: document.getElementById('sessionInput'),
     setupBox: document.getElementById('setupBox'),
@@ -184,8 +190,14 @@ var app = {
             if(event.keyCode === 13){app.sendMsg();}
         });
     },
-    modeButton: function(){ // Enter name / connect mic then enter friend name / connect
-
+    mode: function(){ // Enter name / connect mic then enter friend name / connect
+        if(app.chatMode){
+            app.endChat();
+            app.modeButton.innerHTML = 'connect';
+        } else {
+            rtc.connect();
+            app.modeButton.innerHTML = 'disconnect';
+        }
     },
     endChat: function(){
         dataPeer.send({type: 'disconnect'});
