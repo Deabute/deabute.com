@@ -36,8 +36,8 @@ var rtc = { // stun servers in config allow client to introspect a communication
         });                                                     // note answer is shown to user in onicecandidate event above once resolved
     },
     connect: function(){                                        // what to do when a friends session id is entered
-        ws.friendName = app.friendInput.value;                  // set id to target friend value to use when ice canidates are gathered
-        app.friendInput.value = '';
+        ws.friendName = app.nameInput.value;                    // set id to target friend value to use when ice canidates are gathered
+        app.nameInput.value = '';
         rtc.init(rtc.createOffer);
     }
 };
@@ -64,12 +64,9 @@ var dataPeer = {
         catch(error){}                         // if error we don't care there is a default object
         var res = {type: null};                // response
         if(req.type === 'disconnect'){
-            ws.friend = '';
-            app.changeMode();
-            rtc.peer.close();
-            rtc.peer = null;
+            app.changeMode(1);                 // jump to startin point
         } else if(req.type === 'connect'){
-            app.changeMode();
+            app.changeMode(4); // Stage 3 mode change
         } else {
             console.log(message);        // will log message regardless of whether it was parsed
         }
@@ -121,8 +118,6 @@ var ws = {
             rtc.peer.addIceCandidate(req.canidate);
         } else if(req.type === 'nomatch'){
             console.log('no matches found');
-        } else if(req.type === 'disconnect'){
-            app.changeMode();
         } else {
             // console.log(message);        // will log message regardless of whether it was parsed
         }
@@ -159,52 +154,57 @@ var media = {
 
 var app = {
     modes: [
-        'Enter name and connect mic',
-        'Enter friend name and talk (empty for whomever)',
-        'end call'
+        'ending connection',
+        'Enter name and allow Microphone',
+        'Connect (empty for whomever)',
+        'connecting...',
+        'disconnect'
     ],
-    chatMode: false, // Determites if showing talkin mode or connecting mode
+    chatMode: 1, // Determites if showing talkin mode or connecting mode
     modeButton: document.getElementById('modeButton'),
     nameInput: document.getElementById('nameInput'),
-    friendInput: document.getElementById('friendInput'),
-    setupBox: document.getElementById('setupBox'),
+    discription: document.getElementById('discription'),
     init: function(){
         document.addEventListener('DOMContentLoaded', function(){       // wait till dom is loaded before manipulating it
-            media.init();                                               // start making rtc connection once we get media
+            app.modeButton.innerHTML = app.modes[1];
             ws.init(document.getElementById('socketserver').innerHTML); // grab socket server from compiled jekyll temlpate for this env
             document.getElementById('socketserver').style.visibility = 'hidden'; // hide, not sure how to do this in html
         });
-        document.addEventListener('keyup', function(event){ // map enter button to sending message
-            if(event.keyCode === 13){app.sendMsg();}
-        });
     },
-    mode: function(){ // Enter name / connect mic then enter friend name / connect
-        if(app.chatMode){
-            app.endChat();
-        } else {
-            rtc.connect();
-        }
-    },
-    userName: function(){
-        ws.send({type: 'name', name: app.nameInput.value});
-    },
-    endChat: function(){
-        dataPeer.send({type: 'disconnect'});
-        ws.send({type: 'disconnect'});
-        ws.friend = '';
-        rtc.peer.close();
-        rtc.peer = null;
-        app.changeMode();
-    },
-    changeMode: function(){ // change between chat or connect view
-        app.chatMode = !app.chatMode;
-        if(app.chatMode){
-            app.modeButton.innerHTML = 'disconnect';
-            app.setupBox.style.visibility = 'hidden';
-        } else {
-            app.modeButton.innerHTML = 'connect';
-            app.setupBox.style.visibility = 'visible';
-        }
+    changeMode: function(chatMode){ // change between chat or connect view
+        app.chatMode = chatMode ? chatMode : app.chatMode + 1;
+        if(app.chatMode === app.modes.length){app.chatMode = 0;}
+        if(app.chatMode === 0){
+            dataPeer.send({type: 'disconnect'}); // tell friend we are done
+            ws.send({type: 'disconnect'});       // tell server we are done
+            app.changeMode(1);                   // jump to starting point
+        } else if(app.chatMode === 1){ // end chat button was press
+            ws.friendName = '';
+            ws.friendId = '';
+            rtc.peer.close();
+            rtc.peer = null;
+            app.discription.style.visibility = 'visible';
+            if(media.stream){app.changeMode(2);}
+            else { app.modeButton.innerHTML = app.modes[1]; }
+        } else if(app.chatMode === 2){
+            if(!media.stream){
+                media.init();
+                ws.send({type: 'name', name: app.nameInput.value});
+            }
+            app.nameInput.value = '';
+            app.modeButton.innerHTML = app.modes[2];
+        } else if(app.chatMode == 3){
+            if(media.stream){
+                rtc.connect();
+                app.modeButton.innerHTML = app.modes[3];
+            } else {
+                app.modeButton.innerHTML = 'No voice detected';
+                app.chatMode = 2;
+            }
+        } else if (app.chatMode === 4){
+            app.discription.style.visibility = 'hidden';
+            app.modeButton.innerHTML = app.modes[4];
+        } else {console.log('ya daw gone messed up');}
     }
 };
 
