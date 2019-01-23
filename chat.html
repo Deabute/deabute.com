@@ -4,7 +4,7 @@ title:
 ---
 
 <div id="setupBox">
-    <p>This is a test of webRTC data channels that allows for talking with a friend.
+    <p>This is a test of webRTC that allows for talking with a friend.
     You will need to share a session id with a friend, have one shared with you, or just press connect to connect with first availible peer online</p>
     <p id="sessionid"> <i>loading session id</i> </p>
     <label for="sessionInput" id="inputLabel">Paste friend id</label>
@@ -20,10 +20,7 @@ title:
 
 <div id="msgArea">
     <audio id="mediaStream" autoplay> unsuported </audio>
-    <div id="receiveBox"></div>
     <button onclick="app.endChat()" type="button" name="getInfo">End Call</button>
-    <textarea id="sendBox" rows="1" cols="80"></textarea>
-    <button onclick="app.sendMsg()" type="button" name="getInfo">Send Message</button>
 </div>
 
 <script type="text/javascript" src="{{ site.url }}/assets/js/chat.js"></script>

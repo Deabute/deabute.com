@@ -64,9 +64,7 @@ var dataPeer = {
         try {req = JSON.parse(message);}       // probably should be wrapped in error handler
         catch(error){}                         // if error we don't care there is a default object
         var res = {type: null};                // response
-        if(req.type === 'msg'){
-            app.appendMsg('Peer: ' + req.msg); // onmessage event returns an object
-        } else if(req.type === 'disconnect'){
+        if(req.type === 'disconnect'){
             ws.friend = '';
             app.changeMode();
             rtc.peer.close();
@@ -171,8 +169,6 @@ var app = {
     ],
     inputLabelEl: document.getElementById('inputLabel'),
     chatMode: false, // Determites if showing talkin mode or connecting mode
-    receiveBox: document.getElementById('receiveBox'),
-    sendBox: document.getElementById('sendBox'),
     sessionID: document.getElementById('sessionid'),
     sessionInput: document.getElementById('sessionInput'),
     setupBox: document.getElementById('setupBox'),
@@ -188,10 +184,8 @@ var app = {
             if(event.keyCode === 13){app.sendMsg();}
         });
     },
-    sendMsg: function(){ // send messages to peer
-        dataPeer.send({type: 'msg', msg: app.sendBox.value});
-        app.appendMsg('Me  : ' + app.sendBox.value);
-        app.sendBox.value = '';
+    modeButton: function(){ // Enter name / connect mic then enter friend name / connect
+
     },
     endChat: function(){
         dataPeer.send({type: 'disconnect'});
@@ -201,19 +195,12 @@ var app = {
         rtc.peer = null;
         app.changeMode();
     },
-    appendMsg: function(msg){  // add messages to message box
-        var line = document.createElement('p');
-        var txtNode = document.createTextNode(msg);
-        line.appendChild(txtNode);
-        app.receiveBox.appendChild(line);
-    },
     changeMode: function(){ // change between chat or connect view
         app.chatMode = !app.chatMode;
         if(app.chatMode){
             app.msgArea.style.visibility = 'visible';
             app.setupBox.style.visibility = 'hidden';
         } else {
-            app.receiveBox.innerHTML = '';
             app.msgArea.style.visibility = 'hidden';
             app.setupBox.style.visibility = 'visible';
         }
