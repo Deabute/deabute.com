@@ -24,21 +24,20 @@ var rtc = { // stun servers in config allow client to introspect a communication
         rtc.peer.createOffer(offerConfig).then( function onOffer(desc){       // get sdp data to show user, that will share with a friend
             return rtc.peer.setLocalDescription(desc);                        // note what sdp data self will use
         }).then( function onSet(){
-            ws.send({type: 'sdp', sdp: rtc.peer.localDescription, peerID: ws.friend}); // send offer to friend
+            ws.send({type: 'offer', sdp: rtc.peer.localDescription, friendName: ws.friendName}); // send offer to friend
         });
     },
-    onSdp: function(sdp){
+    onOffer: function(sdp){
         rtc.peer.setRemoteDescription(sdp);
-        if(sdp.type === 'offer'){                               // create an answer when type is offer
-            rtc.peer.createAnswer().then(function onAnswer(answer){ // create answer to remote peer that offered
-                return rtc.peer.setLocalDescription(answer);    // set that offer as our local discripion
-            }).then(function onOfferSetDesc(){
-                ws.send({type: 'sdp', sdp: rtc.peer.localDescription, peerID: ws.friend}); // send offer to friend
-            });                                                 // note answer is shown to user in onicecandidate event above once resolved
-        }                                                       // ice canidates start resolving after local discription is set
+        rtc.peer.createAnswer().then(function onAnswer(answer){ // create answer to remote peer that offered
+            return rtc.peer.setLocalDescription(answer);        // set that offer as our local discripion
+        }).then(function onOfferSetDesc(){
+            ws.send({type: 'answer', sdp: rtc.peer.localDescription, friendId: ws.friendId}); // send offer to friend
+        });                                                     // note answer is shown to user in onicecandidate event above once resolved
     },
-    connect: function(peer){                                    // what to do when a friends session id is entered
-        ws.friend = peer ? peer : app.sessionInput.value;       // set id to target friend value to use when ice canidates are gathered
+    connect: function(){                                        // what to do when a friends session id is entered
+        ws.friendName = app.friendInput.value;                  // set id to target friend value to use when ice canidates are gathered
+        app.friendInput.value = '';
         rtc.init(rtc.createOffer);
     }
 };
@@ -90,7 +89,8 @@ var dataPeer = {
 
 var ws = {
     id: null,          // id of this connection set by server
-    friend: '',        // id of peer to connect with
+    friendName: '',    // id of peer to connect with
+    friendId: '',      // socket id of peer connection
     instance: null,    // placeholder for websocket object
     connected: false,  // set to true when connected to server
     init: function(server){
@@ -112,22 +112,19 @@ var ws = {
         var res = {type: null};          // response
         if(req.type === 'token'){
             ws.id = req.data;
-            app.sessionID.innerHTML = req.data; // show "session id" to share turn out to conviently double a client id
-        } else if(req.type === 'sdp'){
-            ws.friend = req.peerID;
-            if(req.sdp.type === 'offer'){
-                rtc.init(function onInit(){rtc.onSdp(req.sdp);});
-            } else { rtc.onSdp(req.sdp);}
+        } else if(req.type === 'offer'){
+            ws.friendId = req.id;
+            rtc.init(function onInit(){rtc.onOffer(req.sdp);});
+        } else if(req.type === 'answer'){
+            rtc.peer.setRemoteDescription(req.sdp);
         } else if(req.type === 'ice'){
             rtc.peer.addIceCandidate(req.canidate);
         } else if(req.type === 'nomatch'){
-            app.inputStage++;
-            if(app.inputStage > app.inputStage.length){app.inputStage = 0;}
-            app.inputLabelEl.innerHTML = app.inputLabelText[app.inputStage];
+            console.log('no matches found');
         } else if(req.type === 'disconnect'){
             app.changeMode();
         } else {
-            console.log(message);        // will log message regardless of whether it was parsed
+            // console.log(message);        // will log message regardless of whether it was parsed
         }
         return res;
     },
@@ -161,22 +158,15 @@ var media = {
 };
 
 var app = {
-    inputStage: 0,
-    inputLabelText: [
-        'Paste friend id',
-        'Sorry try a different id',
-        'They might be chatting with someone'
-    ],
     modes: [
         'Enter name and connect mic',
         'Enter friend name and talk (empty for whomever)',
         'end call'
     ],
-    inputLabelEl: document.getElementById('inputLabel'),
     chatMode: false, // Determites if showing talkin mode or connecting mode
     modeButton: document.getElementById('modeButton'),
-    sessionID: document.getElementById('sessionid'),
-    sessionInput: document.getElementById('sessionInput'),
+    nameInput: document.getElementById('nameInput'),
+    friendInput: document.getElementById('friendInput'),
     setupBox: document.getElementById('setupBox'),
     init: function(){
         document.addEventListener('DOMContentLoaded', function(){       // wait till dom is loaded before manipulating it
@@ -194,6 +184,9 @@ var app = {
         } else {
             rtc.connect();
         }
+    },
+    userName: function(){
+        ws.send({type: 'name', name: app.nameInput.value});
     },
     endChat: function(){
         dataPeer.send({type: 'disconnect'});

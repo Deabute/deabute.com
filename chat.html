@@ -4,11 +4,15 @@ title:
 ---
 
 <div id="setupBox">
-    <p>This is a test of webRTC that allows for talking with a friend.
-    You will need to share a session id with a friend, have one shared with you, or just press connect to connect with first availible peer online</p>
-    <p id="sessionid"> <i>loading session id</i> </p>
-    <label for="sessionInput" id="inputLabel">Paste friend id</label>
-    <textarea id="sessionInput" rows="1" cols="16"></textarea>
+    <p>This webRTC that allows for talking with a friend.
+    Enter thier session ID or share yours.
+    Also possible to leave blank to connect with first availible peer online</p>
+    <label for="nameInput" >What is your name</label>
+    <textarea id="nameInput" rows="1" cols="16"></textarea>
+    <button onclick="app.userName()" type="button">submit name</button>
+    <br>
+    <label for="friendInput" id="inputLabel">Enter friend name</label>
+    <textarea id="friendInput" rows="1" cols="16"></textarea>
     {% if jekyll.environment == "production" %}
         <p id=socketserver>{{ site.socketserver }}</p>
     {% else %}
@@ -17,7 +21,7 @@ title:
 
 </div>
 
-<button onclick="app.mode()" type="button" id='modeButton'>connect (enter nothing for random)</button>
+<button onclick="app.mode()" type="button" id='modeButton'>connect</button>
 <audio id="mediaStream" autoplay> unsuported </audio>
 
 <script type="text/javascript" src="{{ site.url }}/assets/js/chat.js"></script>
