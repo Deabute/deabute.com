@@ -3,9 +3,12 @@
 var rtc = { // stun servers in config allow client to introspect a communication path to offer a remote peer
     config: {'iceServers': [ {'urls': 'stun:stun.stunprotocol.org:3478'}, {'urls': 'stun:stun.l.google.com:19302'} ]},
     peer: null,                      // placeholder for parent webRTC object instance
-    init: function(mediaStream, onSetupCB){
+    init: function(onSetupCB){
         rtc.peer = new RTCPeerConnection(rtc.config);           // create new instance for local client
-        rtc.handleMedia(mediaStream);                           // function for adding media tracks to our rtc connection
+        if(media.stream){
+            media.stream.getTracks().forEach(function(track){rtc.peer.addTrack(track, media.stream);});
+        } else { console.log('Connecting before media obtained');}
+        rtc.peer.ontrack = function(event){media.output.srcObject = event.streams[0];};
         dataPeer.channel = rtc.peer.createDataChannel('chat');  // Creates data endpoint for client's side of connection
         rtc.peer.onicecandidate = function onIce(event) {       // on address info being introspected (after local discription is set)
             if(event.candidate){                                // canididate property denotes data as multiple canidates can resolve
@@ -15,27 +18,11 @@ var rtc = { // stun servers in config allow client to introspect a communication
         rtc.peer.ondatachannel = dataPeer.newChannel;           // creates data endpoints for remote peer on rtc connection
         onSetupCB();                                            // create and offer or answer depending on what intiated
     },
-    handleMedia: function(mediaStream){
-        if(mediaStream){
-            // rtc.peer.addStream(mediaStream);
-            var audioTracks = mediaStream.getAudioTracks();
-            // audioTracks.forEach(function(track){console.log(track);});
-            if(audioTracks.length){
-                if(audioTracks[0].enabled){}
-                else{console.log('Microphone muted');}
-                rtc.peer.addTrack(audioTracks[0], mediaStream);
-                // audioTracks.forEach(function(track){rtc.peer.addTrack(track, mediaStream);});
-            } else {console.log('woah! no audio');}
-        }
-        // rtc.peer.ontrack = media.ontrack;
-        rtc.peer.addEventListener('track', media.ontrack);
-    },
-    createOffer: function(){                                    // extend offer to client so they can send it to remote
+    createOffer: function(){                                                  // extend offer to client so they can send it to remote
         var offerConfig = { offerToReceiveAudio: 1, offerToReceiveVideo: 0 }; // can be passed to createOffer
-        rtc.peer.createOffer().then( function onOffer(desc){    // get sdp data to show user, that will share with a friend
-            return rtc.peer.setLocalDescription(desc);          // note what sdp data self will use
+        rtc.peer.createOffer(offerConfig).then( function onOffer(desc){       // get sdp data to show user, that will share with a friend
+            return rtc.peer.setLocalDescription(desc);                        // note what sdp data self will use
         }).then( function onSet(){
-            // rtc.localID.sdp = rtc.peer.localDescription;        // set local discription into something that can be shared
             ws.send({type: 'sdp', sdp: rtc.peer.localDescription, peerID: ws.friend}); // send offer to friend
         });
     },
@@ -51,7 +38,7 @@ var rtc = { // stun servers in config allow client to introspect a communication
     },
     connect: function(peer){                                    // what to do when a friends session id is entered
         ws.friend = peer ? peer : app.sessionInput.value;       // set id to target friend value to use when ice canidates are gathered
-        rtc.init(null, rtc.createOffer);
+        rtc.init(rtc.createOffer);
     }
 };
 
@@ -124,9 +111,7 @@ var ws = {
         } else if(req.type === 'sdp'){
             ws.friend = req.peerID;
             if(req.sdp.type === 'offer'){
-                rtc.init(null, function onInit(){
-                    rtc.onSdp(req.sdp);
-                });
+                rtc.init(function onInit(){rtc.onSdp(req.sdp);});
             } else { rtc.onSdp(req.sdp);}
         } else if(req.type === 'ice'){
             rtc.peer.addIceCandidate(req.canidate);
@@ -156,23 +141,19 @@ var ws = {
 };
 
 var media = {
-    output: document.getElementById('voiceStream'),
-    init: function(rtcInit){ // get user permistion to use media
+    output: document.getElementById('mediaStream'),
+    stream: null,
+    init: function(onMedia){ // get user permistion to use media
+        var onMediaCallback = onMedia ? onMedia : function noSoupForYou(stream){console.log(JSON.stringify(stream));};
         navigator.mediaDevices.getUserMedia({audio: true, video: false}).then(function onMedia(mediaStream){
-            // var audioTracks = mediaStream.getAudioTracks();
-            rtcInit(mediaStream);
-        }).catch(function onNoMedia(error){
-            rtcInit(null);
-            console.log(error.message);
-        });
-        media.output.addEventListener('loadedmetadata', function(event){
-            console.log('maybe a stream was added?: ' + JSON.stringify(event));
-        });
-    },
-    ontrack: function(event){
-        console.log(JSON.stringify(event));
-        media.output.srcObject = event.streams[0];
-        // document.getElementById('voiceStream').src = URL.createObjectURL(event.stream);
+            media.stream = mediaStream;
+            var audioTracks = mediaStream.getAudioTracks();
+            if(audioTracks.length){
+                if(audioTracks[0].enabled){}
+                else{console.log('Microphone muted');}
+            } else {console.log('woah! no audio');}
+            // onMediaCallback(mediaStream);
+        }).catch(function onNoMedia(error){onMediaCallback(error);});
     }
 };
 
@@ -193,8 +174,7 @@ var app = {
     msgArea: document.getElementById('msgArea'),
     init: function(){
         document.addEventListener('DOMContentLoaded', function(){       // wait till dom is loaded before manipulating it
-            // media.init(rtc.init);                                       // start making rtc connection once we get media
-            // rtc.init();
+            media.init();                                               // start making rtc connection once we get media
             app.msgArea.style.visibility = 'hidden';                    // not sure why this doesnt work in html
             ws.init(document.getElementById('socketserver').innerHTML); // grab socket server from compiled jekyll temlpate for this env
             document.getElementById('socketserver').style.visibility = 'hidden'; // hide, not sure how to do this in html
