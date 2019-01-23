@@ -52,7 +52,10 @@ var dataPeer = {
             var res = dataPeer.incoming(event.data);
             if(res.type){ws.send(res);}
         };
-        receiveChannel.onopen = function onOpen(){dataPeer.connected = true;};    // handle events upon opening connection
+        receiveChannel.onopen = function onOpen(){
+            dataPeer.connected = true;
+            dataPeer.send({type: 'connect'});
+        };    // handle events upon opening connection
         receiveChannel.onclose = function onClose(){dataPeer.connected = false;}; // doenst seem to work on closing a tab
     },
     incoming: function(message){               // handle incoming socket messages
@@ -66,6 +69,9 @@ var dataPeer = {
             ws.friend = '';
             app.changeMode();
             rtc.peer.close();
+            rtc.peer = null;
+        } else if(req.type === 'connect'){
+            app.changeMode();
         } else {
             console.log(message);        // will log message regardless of whether it was parsed
         }
@@ -115,8 +121,6 @@ var ws = {
             } else { rtc.onSdp(req.sdp);}
         } else if(req.type === 'ice'){
             rtc.peer.addIceCandidate(req.canidate);
-        } else if(req.type === 'match'){
-            app.changeMode();
         } else if(req.type === 'nomatch'){
             app.inputStage++;
             if(app.inputStage > app.inputStage.length){app.inputStage = 0;}
@@ -144,15 +148,15 @@ var media = {
     output: document.getElementById('mediaStream'),
     stream: null,
     init: function(onMedia){ // get user permistion to use media
-        var onMediaCallback = onMedia ? onMedia : function noSoupForYou(stream){console.log(JSON.stringify(stream));};
+        var onMediaCallback = onMedia ? onMedia : function noSoupForYou(){};
         navigator.mediaDevices.getUserMedia({audio: true, video: false}).then(function onMedia(mediaStream){
             media.stream = mediaStream;
             var audioTracks = mediaStream.getAudioTracks();
             if(audioTracks.length){
-                if(audioTracks[0].enabled){}
-                else{console.log('Microphone muted');}
+                if(audioTracks[0].enabled){
+                } else{console.log('Microphone muted');}
             } else {console.log('woah! no audio');}
-            // onMediaCallback(mediaStream);
+            onMediaCallback(mediaStream);
         }).catch(function onNoMedia(error){onMediaCallback(error);});
     }
 };
@@ -174,20 +178,14 @@ var app = {
     msgArea: document.getElementById('msgArea'),
     init: function(){
         document.addEventListener('DOMContentLoaded', function(){       // wait till dom is loaded before manipulating it
-            media.init();                                               // start making rtc connection once we get media
+            // media.init();                                               // start making rtc connection once we get media
             app.msgArea.style.visibility = 'hidden';                    // not sure why this doesnt work in html
             ws.init(document.getElementById('socketserver').innerHTML); // grab socket server from compiled jekyll temlpate for this env
             document.getElementById('socketserver').style.visibility = 'hidden'; // hide, not sure how to do this in html
         });
-        /*document.addEventListener('keyup', function(event){ // map enter button to sending message
-            if(event.keyCode === 13){
-                if(app.chatMode){
-                    app.sendMsg();
-                } else {
-                    rtc.sessionId();
-                }
-            }
-        });*/
+        document.addEventListener('keyup', function(event){ // map enter button to sending message
+            if(event.keyCode === 13){app.sendMsg();}
+        });
     },
     sendMsg: function(){ // send messages to peer
         dataPeer.send({type: 'msg', msg: app.sendBox.value});
@@ -199,6 +197,7 @@ var app = {
         ws.send({type: 'disconnect'});
         ws.friend = '';
         rtc.peer.close();
+        rtc.peer = null;
         app.changeMode();
     },
     appendMsg: function(msg){  // add messages to message box
