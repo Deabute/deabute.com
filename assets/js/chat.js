@@ -57,11 +57,12 @@ var dataPeer = {
         if(req.type === 'disconnect'){
             app.showConnect();                 // show ability to connect once disconnected
         } else if(req.type === 'connect'){
+            prompt.load(prompt.findCommon);
             app.friendInput.value = '';
-            app.friendInput.style.visibility = 'hidden';
+            app.friendInput.hidden = true;
             app.discription.innerHTML = 'connected';
             app.connectButton.innerHTML = 'Disconnect';
-            app.connectButton.style.visibility = 'visible';
+            app.connectButton.hidden = false;
         } // else { console.log(event.data); }        // will log message regardless of whether it was parsed
         if(res.type){dataPeer.send(res);}
     },
@@ -140,6 +141,38 @@ var media = {
     }
 };
 
+var prompt = {
+    caller: false,
+    loaded: false, // only needs to load once, but we're probably going only call it when we need it
+    load: function(onScriptCallback){
+        if(prompt.loaded){
+            onScriptCallback();
+        } else {
+            var script = document.createElement('script');
+            script.onload = function(){
+                prompt.loaded = true;
+                onScriptCallback();
+            };
+            script.src = document.getElementById('host').innerHTML + '/assets/js/questions.js';
+            document.head.appendChild(script);
+        }
+    },
+    findCommon: function(){ // only find commonalities if we are connected to a peer this is called by
+        var halflist = affinity.length / 2;
+        if(prompt.caller){                    // search list from back
+            halflist = Math.floor(halflist);  // take longer half of list
+            for(var longHalf = affinity.length - 1; longHalf >= halflist; longHalf--){
+                console.log(affinity[longHalf].question);
+            }
+        } else {                             // serch list from from front
+            halflist = Math.floor(halflist); // take shorter half of list
+            for(var shortHalf = 0; shortHalf < halflist; shortHalf++){
+                console.log(affinity[shortHalf].question);
+            }
+        }
+    }
+};
+
 var app = {
     modeButton: document.getElementById('modeButton'),
     setupInput: document.getElementById('setupInput'),
@@ -150,8 +183,6 @@ var app = {
     init: function(){
         document.addEventListener('DOMContentLoaded', function(){       // wait till dom is loaded before manipulating it
             ws.init(document.getElementById('socketserver').innerHTML, localStorage.username, localStorage.uid);
-            document.getElementById('socketserver').style.visibility = 'hidden'; // hide, not sure how to do this in html
-            app.hideConnect();
             if(localStorage.username){
                 app.discription.innerHTML = 'Welcome back';
                 app.setupButton.innerHTML = 'Turn on Microphone';
@@ -167,20 +198,21 @@ var app = {
             ws.send({type: 'name', name: app.setupInput.value.toLowerCase()});
             localStorage.username = app.setupInput.value;
         }
-        app.setupInput.style.visibility = 'hidden';
+        app.setupInput.hidden = true;
         media.init();
     },
     showConnect: function(){
         if(rtc.peer){ rtc.peer.close(); rtc.peer = null;} // clean up pre existing rtc connection if there
         app.discription.innerHTML = 'Enter a friend\'s name or just press connect to get a match';
-        app.friendInput.style.visibility = 'visible';
+        app.friendInput.hidden = false;
         app.connectButton.innerHTML = 'Connect';
-        app.connectButton.style.visibility = 'visible';
+        app.connectButton.hidden = false;
+        prompt.caller = false;
     },
     hideConnect: function(){
         app.friendInput.value = '';
-        app.friendInput.style.visibility = 'hidden';
-        app.connectButton.style.visibility = 'hidden';
+        app.friendInput.hidden = true;
+        app.connectButton.hidden = true;
     },
     toggleConnection: function(){
         if(dataPeer.connected){
@@ -189,6 +221,7 @@ var app = {
             app.showConnect();
         } else {
             rtc.init(function(){rtc.createOffer(app.friendInput.value.toLowerCase());});
+            prompt.caller = true;
             app.discription.innerHTML = 'connecting';
             app.hideConnect();
         }

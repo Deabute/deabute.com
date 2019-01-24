@@ -7,14 +7,16 @@ title:
 <textarea id="setupInput" value="anonymous" rows="1" cols="16"></textarea>
 <button onclick="app.setup()" type="button" id='setupButton'></button>
 <br>
-<textarea id="friendInput" rows="1" cols="16"></textarea>
-<button onclick="app.toggleConnection()" type="button" id='connectButton'></button>
+<textarea id="friendInput" rows="1" cols="16" hidden></textarea>
+<button onclick="app.toggleConnection()" type="button" id='connectButton' hidden></button>
+<div id="meta" hidden>
+    <p id='host'>{{ site.url }}</p>
 {% if jekyll.environment == "production" %}
     <p id=socketserver>{{ site.socketserver }}</p>
 {% else %}
     <p id="socketserver">ws://{{ site.host }}:3000</p>
 {% endif %}
-
+</div>
 <audio id="mediaStream" autoplay> unsuported </audio>
 
 <script type="text/javascript" src="{{ site.url }}/assets/js/chat.js"></script>
