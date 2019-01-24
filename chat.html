@@ -3,11 +3,12 @@ layout: page
 title:
 ---
 
-<p id='discription'>This webRTC app lets one talk with a friend or other person online.
-Enter thier session ID or share yours.
-Also possible to leave blank to connect with first availible peer online</p>
-<textarea id="nameInput" rows="1" cols="16"></textarea>
-<button onclick="app.changeMode()" type="button" id='modeButton'></button>
+<p id='discription'>This app lets you voice chat with someone</p>
+<textarea id="setupInput" value="anonymous" rows="1" cols="16"></textarea>
+<button onclick="app.setup()" type="button" id='setupButton'></button>
+<br>
+<textarea id="friendInput" rows="1" cols="16"></textarea>
+<button onclick="app.toggleConnection()" type="button" id='connectButton'></button>
 {% if jekyll.environment == "production" %}
     <p id=socketserver>{{ site.socketserver }}</p>
 {% else %}
