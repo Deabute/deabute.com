@@ -55,9 +55,9 @@ var dataPeer = {
         try {req = JSON.parse(event.data);}catch(error){}       // probably should be wrapped in error handler
         var res = {type: null};                // response
         if(req.type === 'disconnect'){
-            app.showConnect();                 // show ability to connect once disconnected
+            prompt.nps(ws.friendId, app.showConnect);       // ask nps question and show ability to connect once disconnected
+            app.closeConnection();                          // needs to happend after friend id is passed to nps
         } else if(req.type === 'connect'){
-            prompt.load(prompt.findCommon);
             app.friendInput.value = '';
             app.friendInput.hidden = true;
             app.discription.innerHTML = 'connected';
@@ -143,6 +143,9 @@ var media = {
 
 var prompt = {
     caller: false,
+    feild: document.getElementById('promptFeild'),
+    form: document.getElementById('promptForm'),
+    answers: document.getElementById('formAnswers'),
     loaded: false, // only needs to load once, but we're probably going only call it when we need it
     load: function(onScriptCallback){
         if(prompt.loaded){
@@ -170,6 +173,54 @@ var prompt = {
                 console.log(affinity[shortHalf].question);
             }
         }
+    },
+    nps: function(friendId, onAnswer){
+        prompt.load(function(){
+            prompt.create(postChat[0], friendId, function whenAnswered(){
+                prompt.remove();
+                onAnswer();
+            });
+        });
+    },
+    create: function(questionObj, friendId, onAnswer){
+        prompt.form.hidden = false;
+        prompt.feild.innerHTML = questionObj.question;
+        var answerBundle = document.createElement('div');
+        answerBundle.id = 'answerBundle';
+        prompt.answers.appendChild(answerBundle);
+        for(var i = 0; i < questionObj.answers.length; i++){
+            var radioLabel = document.createElement('label');
+            var radioOption = document.createElement('input');
+            radioLabel.for = 'answer' + i;
+            radioOption.id = 'answer' + i;
+            radioLabel.innerHTML = questionObj.answers[i];
+            radioOption.type = 'radio';
+            radioOption.name = 'answer';
+            radioOption.value = i;
+            answerBundle.appendChild(radioOption);
+            answerBundle.appendChild(radioLabel);
+            answerBundle.appendChild(document.createElement('br'));
+        }
+        prompt.form.addEventListener('submit', function(event){
+            event.preventDefault();
+            var radios = document.getElementsByName('answer');
+            for(var entry = 0; entry < radios.length; entry++){
+                if(radios[entry].checked){
+                    console.log(radios[entry].value);
+                    if(typeof localStorage[friendId] === 'object'){
+                        localStorage[friendId].nps = radios[entry].value;
+                    } else {
+                        localStorage[friendId] = { nps: radios[entry].value };
+                    }
+                }
+            }
+            onAnswer();
+        }, false);
+    },
+    remove: function(){
+        prompt.answers.removeChild(document.getElementById('answerBundle'));
+        prompt.form.hidden = true;
+        prompt.feild.innerHTML = '';
     }
 };
 
@@ -201,8 +252,13 @@ var app = {
         app.setupInput.hidden = true;
         media.init();
     },
-    showConnect: function(){
+    closeConnection: function(){
         if(rtc.peer){ rtc.peer.close(); rtc.peer = null;} // clean up pre existing rtc connection if there
+        ws.friendId = '';
+        app.discription.innerHTML = '';
+        app.connectButton.hidden = true;
+    },
+    showConnect: function(){
         app.discription.innerHTML = 'Enter a friend\'s name or just press connect to get a match';
         app.friendInput.hidden = false;
         app.connectButton.innerHTML = 'Connect';
@@ -218,7 +274,8 @@ var app = {
         if(dataPeer.connected){
             dataPeer.send({type: 'disconnect'}); // tell friend we are done
             ws.send({type: 'disconnect'});       // tell server we are done
-            app.showConnect();
+            prompt.nps(ws.friendId, app.showConnect);
+            app.closeConnection();
         } else {
             rtc.init(function(){rtc.createOffer(app.friendInput.value.toLowerCase());});
             prompt.caller = true;

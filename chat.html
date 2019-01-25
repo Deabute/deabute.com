@@ -3,7 +3,12 @@ layout: page
 title:
 ---
 
-<p id='discription'>This app lets you voice chat with someone</p>
+<p id="discription">This app lets you voice chat with someone</p>
+<form id="promptForm" hidden>
+    <p id="promptFeild"></p>
+    <div id='formAnswers'></div>
+    <button type="submit">Submit</button>
+</form>
 <textarea id="setupInput" value="anonymous" rows="1" cols="16"></textarea>
 <button onclick="app.setup()" type="button" id='setupButton'></button>
 <br>
