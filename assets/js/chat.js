@@ -206,7 +206,6 @@ var prompt = {
             var radios = document.getElementsByName('answer');
             for(var entry = 0; entry < radios.length; entry++){
                 if(radios[entry].checked){
-                    console.log(radios[entry].value);
                     if(typeof localStorage[friendId] === 'object'){
                         localStorage[friendId].nps = radios[entry].value;
                     } else {
@@ -218,7 +217,7 @@ var prompt = {
         }, false);
     },
     remove: function(){
-        prompt.answers.removeChild(document.getElementById('answerBundle'));
+        prompt.answers.innerHTML = '';
         prompt.form.hidden = true;
         prompt.feild.innerHTML = '';
     }
