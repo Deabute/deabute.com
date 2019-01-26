@@ -1,5 +1,5 @@
 // rtctest.js ~ copyright 2019 Paul Beaudet ~ MIT License
-// rtcSignal version - 1.0.14
+// rtcSignal version - 1.0.16
 // This test requires at least two browser windows, to open a data connection between two peers
 var rtc = { // stun servers in config allow client to introspect a communication path to offer a remote peer
     config: {'iceServers': [ {'urls': 'stun:stun.stunprotocol.org:3478'}, {'urls': 'stun:stun.l.google.com:19302'} ]},
@@ -13,7 +13,7 @@ var rtc = { // stun servers in config allow client to introspect a communication
         dataPeer.channel = rtc.peer.createDataChannel('chat');  // Creates data endpoint for client's side of connection
         rtc.peer.onicecandidate = function onIce(event) {       // on address info being introspected (after local discription is set)
             if(event.candidate){                                // canididate property denotes data as multiple canidates can resolve
-                ws.send({type: 'ice', canidate: event.candidate});
+                ws.send({type: 'ice', oid: localStorage.oid, canidate: event.candidate});
             }                                                   // null event.canidate means we finished recieving canidates
         };    // Also note that sdp is going to be negotiated first regardless of any media being involved. its faster to resolve
         rtc.peer.ondatachannel = dataPeer.newChannel;           // creates data endpoints for remote peer on rtc connection
@@ -24,7 +24,7 @@ var rtc = { // stun servers in config allow client to introspect a communication
         rtc.peer.createOffer(offerConfig).then( function onOffer(desc){       // get sdp data to show user, that will share with a friend
             return rtc.peer.setLocalDescription(desc);                        // note what sdp data self will use
         }).then( function onSet(){
-            ws.send({type: 'offer', sdp: rtc.peer.localDescription, friendName: friendName}); // send offer to friend
+            ws.send({type: 'offer', oid: localStorage.oid, sdp: rtc.peer.localDescription, friendName: friendName}); // send offer to friend
         });
     },
     giveAnswer: function(sdp){
@@ -32,7 +32,7 @@ var rtc = { // stun servers in config allow client to introspect a communication
         rtc.peer.createAnswer().then(function onAnswer(answer){ // create answer to remote peer that offered
             return rtc.peer.setLocalDescription(answer);        // set that offer as our local discripion
         }).then(function onOfferSetDesc(){
-            ws.send({type: 'answer', sdp: rtc.peer.localDescription, friendId: ws.friendId}); // send offer to friend
+            ws.send({type: 'answer', oid: localStorage.oid, sdp: rtc.peer.localDescription, friendId: ws.friendId}); // send offer to friend
         });                                                     // note answer is shown to user in onicecandidate event above once resolved
     }
 };
@@ -82,12 +82,12 @@ var ws = {
     friendId: '',      // socket id of peer connection
     instance: null,    // placeholder for websocket object
     connected: false,  // set to true when connected to server
-    init: function(server){
+    init: function(server, oid, username){
         ws.instance = new WebSocket(server);
         ws.instance.onopen = function(event){
             ws.connected = true;
             ws.instance.onmessage = ws.incoming;
-            ws.send({type: 'connected', username: localStorage.username}); // may not have username, no problem, just need an ack
+            ws.send({type: 'connected', oid: oid, username: username}); // may not have username, no problem, just need an ack
             ws.onclose = function onSocketClose(){ws.connected = false;};
             ws.onerror = function onSocketError(){console.log(error);};
         };
@@ -223,6 +223,28 @@ var prompt = {
     }
 };
 
+var persistence = {
+    init: function(){
+        if(localStorage.oid){
+            app.discription.innerHTML = 'Welcome back';
+            app.setupButton.innerHTML = 'Turn on Microphone';
+            if(localStorage.username){
+                app.setupInput.value = localStorage.username;
+            } else {
+                app.setupButton.innerHTML = 'Enter name if you would like';
+            }
+        } else { localStorage.oid = persistence.createOid(); }
+    },
+    createOid: function(){
+        var increment = Math.floor(Math.random() * (16777216)).toString(16);
+        var pid = Math.floor(Math.random() * (65536)).toString(16);
+        var machine = Math.floor(Math.random() * (16777216)).toString(16);
+        var timestamp =  Math.floor(new Date().valueOf() / 1000).toString(16);
+        return '00000000'.substr(0, 8 - timestamp.length) + timestamp + '000000'.substr(0, 6 - machine.length) + machine +
+               '0000'.substr(0, 4 - pid.length) + pid + '000000'.substr(0, 6 - increment.length) + increment;
+    },
+};
+
 var app = {
     modeButton: document.getElementById('modeButton'),
     setupInput: document.getElementById('setupInput'),
@@ -232,20 +254,14 @@ var app = {
     discription: document.getElementById('discription'),
     init: function(){
         document.addEventListener('DOMContentLoaded', function(){       // wait till dom is loaded before manipulating it
-            ws.init(document.getElementById('socketserver').innerHTML, localStorage.username, localStorage.uid);
-            if(localStorage.username){
-                app.discription.innerHTML = 'Welcome back';
-                app.setupButton.innerHTML = 'Turn on Microphone';
-                app.setupInput.value = localStorage.username;
-            } else {
-                app.setupButton.innerHTML = 'Enter name if you would like';
-            }
+            persistence.init();
+            ws.init(document.getElementById('socketserver').innerHTML, localStorage.oid, localStorage.username);
         });
     },
     setup: function(){
         app.setupButton.innerHTML = 'Please allow Microphone, in order to connect';
         if(localStorage.username !== app.setupInput.value){ // create or change username
-            ws.send({type: 'name', name: app.setupInput.value.toLowerCase()});
+            ws.send({type: 'name', oid: localStorage.oid, name: app.setupInput.value.toLowerCase()});
             localStorage.username = app.setupInput.value;
         }
         app.setupInput.hidden = true;
@@ -271,8 +287,8 @@ var app = {
     },
     toggleConnection: function(){
         if(dataPeer.connected){
-            dataPeer.send({type: 'disconnect'}); // tell friend we are done
-            ws.send({type: 'disconnect'});       // tell server we are done
+            dataPeer.send({type: 'disconnect'});                  // tell friend we are done
+            ws.send({oid: localStorage.oid, type: 'disconnect'}); // tell server we are done
             prompt.nps(ws.friendId, app.showConnect);
             app.closeConnection();
         } else {
