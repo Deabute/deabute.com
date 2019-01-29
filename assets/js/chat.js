@@ -1,5 +1,5 @@
 // rtctest.js ~ copyright 2019 Paul Beaudet ~ MIT License
-// rtcSignal version - 1.0.16
+// rtcSignal version - 1.0.17
 // This test requires at least two browser windows, to open a data connection between two peers
 var rtc = { // stun servers in config allow client to introspect a communication path to offer a remote peer
     config: {'iceServers': [ {'urls': 'stun:stun.stunprotocol.org:3478'}, {'urls': 'stun:stun.l.google.com:19302'} ]},
@@ -82,8 +82,9 @@ var ws = {
     friendId: '',      // socket id of peer connection
     instance: null,    // placeholder for websocket object
     connected: false,  // set to true when connected to server
-    init: function(server, oid, username){
-        ws.instance = new WebSocket(server);
+    server: document.getElementById('socketserver').innerHTML,
+    init: function(oid, username){
+        ws.instance = new WebSocket(ws.server);
         ws.instance.onopen = function(event){
             ws.connected = true;
             ws.instance.onmessage = ws.incoming;
@@ -224,16 +225,12 @@ var prompt = {
 };
 
 var persistence = {
-    init: function(){
-        if(localStorage.oid){
-            app.discription.innerHTML = 'Welcome back';
-            app.setupButton.innerHTML = 'Turn on Microphone';
-            if(localStorage.username){
-                app.setupInput.value = localStorage.username;
-            } else {
-                app.setupButton.innerHTML = 'Enter name if you would like';
-            }
-        } else { localStorage.oid = persistence.createOid(); }
+    init: function(onStorageLoad){
+        if(localStorage){
+            if(!localStorage.oid){localStorage.oid = persistence.createOid();}
+            onStorageLoad(true, localStorage.oid, localStorage.username);
+        } else { onStorageLoad(false); }
+
     },
     createOid: function(){
         var increment = Math.floor(Math.random() * (16777216)).toString(16);
@@ -245,6 +242,32 @@ var persistence = {
     },
 };
 
+var serviceTime = {
+    START: [5, 16],
+    END: [5, 22],
+    WINDOW: document.getElementById('serviceWindow').innerHTML,
+    next: function(){
+        if(serviceTime.WINDOW === 't'){
+            var startTime = new Date();
+            var dayNow = startTime.getDay();
+            var dateNow = startTime.getDate();
+            var timeNow = startTime.getTime();
+            var endTime = new Date();
+            startTime.setDate(dateNow + (serviceTime.START[0] - dayNow));
+            startTime.setHours(serviceTime.START[1], 0, 0, 0);
+            endTime.setDate(dateNow + (serviceTime.END[0] - dayNow));
+            endTime.setHours(serviceTime.END[1], 0, 0, 0);
+            if(startTime.getTime() < timeNow){
+                if (endTime.getTime() > timeNow){ return false; }
+                else { return startTime; }
+            }
+            var startDate = startTime.getDate();
+            startTime.setDate(startDate + 7);
+            return startTime;
+        } else { return false; }
+    }
+};
+
 var app = {
     modeButton: document.getElementById('modeButton'),
     setupInput: document.getElementById('setupInput'),
@@ -254,8 +277,25 @@ var app = {
     discription: document.getElementById('discription'),
     init: function(){
         document.addEventListener('DOMContentLoaded', function(){       // wait till dom is loaded before manipulating it
-            persistence.init();
-            ws.init(document.getElementById('socketserver').innerHTML, localStorage.oid, localStorage.username);
+            persistence.init(function onLocalRead(capible, oid, username){
+                if(capible){
+                    var nextServiceTime = serviceTime.next();
+                    if(nextServiceTime){
+                        app.setupButton.hidden = true;
+                        app.setupInput.hidden = true;
+                        app.discription.innerHTML = 'Next session starts ' + nextServiceTime.toLocaleString();
+                    } else { // connect to socket server if service is running at current time
+                        if(username){
+                            app.setupButton.innerHTML = 'Allow microphone';
+                            app.discription.innerHTML = 'Welcome back ' + username;
+                            app.setupInput.value = username;
+                        } else {
+                            app.setupButton.innerHTML = 'Enter name, allow microphone';
+                        }
+                        ws.init(oid, username);
+                    }
+                } else {app.discription.innerHTML = 'Incompatible browser';}
+            });
         });
     },
     setup: function(){

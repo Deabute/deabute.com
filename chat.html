@@ -3,7 +3,7 @@ layout: page
 title:
 ---
 
-<p id="discription">This app lets you voice chat with someone</p>
+<p id="discription">This app lets you voice chat with new people</p>
 <span id="rawObject"></span>
 <form id="promptForm" hidden>
     <p id="promptFeild"></p>
@@ -19,8 +19,10 @@ title:
     <p id='host'>{{ site.url }}</p>
 {% if jekyll.environment == "production" %}
     <p id=socketserver>{{ site.socketserver }}</p>
+    <p id=serviceWindow>f</p>
 {% else %}
     <p id="socketserver">ws://{{ site.host }}:3000</p>
+    <p id=serviceWindow>f</p>
 {% endif %}
 </div>
 <audio id="mediaStream" autoplay> unsuported </audio>
