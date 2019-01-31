@@ -204,19 +204,34 @@ var prompt = {
             answerBundle.appendChild(radioLabel);
             answerBundle.appendChild(document.createElement('br'));
         }
+        function whenDone(answers){
+            if(answers){localStorage.answers = JSON.stringify(answers);}
+            var test = JSON.parse(localStorage.answers);
+            for(var j = 0; j < test.length; j++){console.log(test[j]);}
+            onAnswer();
+        }
         prompt.form.addEventListener('submit', function(event){
             event.preventDefault();
             var radios = document.getElementsByName('answer');
+            var unifiedIndex = 4 - halfway; // this gives relitive values for questions with various numbers of answers which can be added with same relitive value
             for(var entry = 0; entry < radios.length; entry++){
                 if(radios[entry].checked){
-                    if(typeof localStorage[friendId] === 'object'){
-                        localStorage[friendId].nps = radios[entry].value;
-                    } else {
-                        localStorage[friendId] = { nps: radios[entry].value };
-                    }
+                    if(localStorage.answers){
+                        var answers = JSON.parse(localStorage.answers);
+                        for(var peer = 0; peer < answers.length; peer++){
+                            if(answers[peer].oid === friendId){
+                                answers[peer].nps = unifiedIndex;
+                                whenDone(answers);
+                                return;
+                            }
+                        }
+                        answers.push({oid: friendId, nps: unifiedIndex});
+                    } else { localStorage.answers = JSON.stringify([{oid: friendId, nps: unifiedIndex}]);}
+                    whenDone();
+                    return;
                 }
+                unifiedIndex++;
             }
-            onAnswer();
         }, false);
     },
     remove: function(){
