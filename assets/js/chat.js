@@ -88,7 +88,7 @@ var ws = {
         ws.instance.onopen = function(event){
             ws.connected = true;
             ws.instance.onmessage = ws.incoming;
-            ws.send({type: 'connected', oid: oid, username: username}); // may not have username, no problem, just need an ack
+            ws.send({type: 'connected', oid: oid, username: username.toLowerCase()}); // may not have username, no problem, just need an ack
             ws.onclose = function onSocketClose(){ws.connected = false;};
             ws.onerror = function onSocketError(){console.log(error);};
         };
@@ -189,9 +189,11 @@ var prompt = {
         var answerBundle = document.createElement('div');
         answerBundle.id = 'answerBundle';
         prompt.answers.appendChild(answerBundle);
+        var halfway = Math.floor(questionObj.answers.length/2);
         for(var i = 0; i < questionObj.answers.length; i++){
             var radioLabel = document.createElement('label');
             var radioOption = document.createElement('input');
+            if(i === halfway){radioOption.checked = true;}
             radioLabel.for = 'answer' + i;
             radioOption.id = 'answer' + i;
             radioLabel.innerHTML = questionObj.answers[i];
