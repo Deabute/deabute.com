@@ -1,5 +1,5 @@
 // rtctest.js ~ copyright 2019 Paul Beaudet ~ MIT License
-// rtcSignal version - 1.0.17
+// rtcSignal version - 1.0.19
 // This test requires at least two browser windows, to open a data connection between two peers
 var rtc = { // stun servers in config allow client to introspect a communication path to offer a remote peer
     config: {'iceServers': [ {'urls': 'stun:stun.stunprotocol.org:3478'}, {'urls': 'stun:stun.l.google.com:19302'} ]},
@@ -19,12 +19,12 @@ var rtc = { // stun servers in config allow client to introspect a communication
         rtc.peer.ondatachannel = dataPeer.newChannel;           // creates data endpoints for remote peer on rtc connection
         onSetupCB();                                            // create and offer or answer depending on what intiated
     },
-    createOffer: function(friendName){                                        // extend offer to client so they can send it to remote
+    createOffer: function(){                                        // extend offer to client so they can send it to remote
         var offerConfig = { offerToReceiveAudio: 1, offerToReceiveVideo: 0 }; // can be passed to createOffer
         rtc.peer.createOffer(offerConfig).then( function onOffer(desc){       // get sdp data to show user, that will share with a friend
             return rtc.peer.setLocalDescription(desc);                        // note what sdp data self will use
         }).then( function onSet(){
-            ws.send({type: 'offer', oid: localStorage.oid, sdp: rtc.peer.localDescription, friendName: friendName}); // send offer to friend
+            ws.send({type: 'offer', oid: localStorage.oid, sdp: rtc.peer.localDescription}); // send offer to connect
         });
     },
     giveAnswer: function(sdp){
@@ -46,7 +46,7 @@ var dataPeer = {
         receiveChannel.onmessage = dataPeer.incoming;
         receiveChannel.onopen = function onOpen(){
             dataPeer.connected = true;
-            dataPeer.send({type: 'connect'});
+            dataPeer.send({type: 'connect', username: localStorage.username});
         };    // handle events upon opening connection
         receiveChannel.onclose = function onClose(){dataPeer.connected = false;}; // doenst seem to work on closing a tab
     },
@@ -58,9 +58,7 @@ var dataPeer = {
             prompt.nps(ws.friendId, app.showConnect);       // ask nps question and show ability to connect once disconnected
             app.closeConnection();                          // needs to happend after friend id is passed to nps
         } else if(req.type === 'connect'){
-            app.friendInput.value = '';
-            app.friendInput.hidden = true;
-            app.discription.innerHTML = 'connected';
+            app.discription.innerHTML = 'connected to ' + req.username;
             app.connectButton.innerHTML = 'Disconnect';
             app.connectButton.hidden = false;
         } // else { console.log(event.data); }        // will log message regardless of whether it was parsed
@@ -83,12 +81,12 @@ var ws = {
     instance: null,    // placeholder for websocket object
     connected: false,  // set to true when connected to server
     server: document.getElementById('socketserver').innerHTML,
-    init: function(oid, username){
+    init: function(oid){
         ws.instance = new WebSocket(ws.server);
         ws.instance.onopen = function(event){
             ws.connected = true;
             ws.instance.onmessage = ws.incoming;
-            ws.send({type: 'connected', oid: oid, username: username.toLowerCase()}); // may not have username, no problem, just need an ack
+            ws.send({type: 'connected', oid: oid});
             ws.onclose = function onSocketClose(){ws.connected = false;};
             ws.onerror = function onSocketError(){console.log(error);};
         };
@@ -289,7 +287,6 @@ var app = {
     modeButton: document.getElementById('modeButton'),
     setupInput: document.getElementById('setupInput'),
     setupButton: document.getElementById('setupButton'),
-    friendInput: document.getElementById('friendInput'),
     connectButton: document.getElementById('connectButton'),
     discription: document.getElementById('discription'),
     init: function(){
@@ -309,7 +306,7 @@ var app = {
                         } else {
                             app.setupButton.innerHTML = 'Enter name, allow microphone';
                         }
-                        ws.init(oid, username);
+                        ws.init(oid);
                     }
                 } else {app.discription.innerHTML = 'Incompatible browser';}
             });
@@ -317,10 +314,7 @@ var app = {
     },
     setup: function(){
         app.setupButton.innerHTML = 'Please allow Microphone, in order to connect';
-        if(localStorage.username !== app.setupInput.value){ // create or change username
-            ws.send({type: 'name', oid: localStorage.oid, name: app.setupInput.value.toLowerCase()});
-            localStorage.username = app.setupInput.value;
-        }
+        localStorage.username = app.setupInput.value;
         app.setupInput.hidden = true;
         media.init();
     },
@@ -331,15 +325,12 @@ var app = {
         app.connectButton.hidden = true;
     },
     showConnect: function(){
-        app.discription.innerHTML = 'Enter a friend\'s name or just press connect to get a match';
-        app.friendInput.hidden = false;
+        app.discription.innerHTML = 'Press connect when ready to get a match';
         app.connectButton.innerHTML = 'Connect';
         app.connectButton.hidden = false;
         prompt.caller = false;
     },
     hideConnect: function(){
-        app.friendInput.value = '';
-        app.friendInput.hidden = true;
         app.connectButton.hidden = true;
     },
     toggleConnection: function(){
@@ -349,7 +340,7 @@ var app = {
             prompt.nps(ws.friendId, app.showConnect);
             app.closeConnection();
         } else {
-            rtc.init(function(){rtc.createOffer(app.friendInput.value.toLowerCase());});
+            rtc.init(function(){rtc.createOffer();});
             prompt.caller = true;
             app.discription.innerHTML = 'connecting';
             app.hideConnect();

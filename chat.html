@@ -10,10 +10,9 @@ title:
     <div id='formAnswers'></div>
     <button type="submit">Submit</button>
 </form>
-<textarea id="setupInput" value="anonymous" rows="1" cols="16"></textarea>
+<textarea id="setupInput" rows="1" cols="16">Anonymous</textarea>
 <button onclick="app.setup()" type="button" id='setupButton'></button>
 <br>
-<textarea id="friendInput" rows="1" cols="16" hidden></textarea>
 <button onclick="app.toggleConnection()" type="button" id='connectButton' hidden></button>
 <div id="meta" hidden>
     <p id='host'>{{ site.url }}</p>
