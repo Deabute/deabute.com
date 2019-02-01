@@ -1,5 +1,5 @@
 // rtctest.js ~ copyright 2019 Paul Beaudet ~ MIT License
-// rtcSignal version - 1.0.19
+// rtcSignal version - 1.0.20
 // This test requires at least two browser windows, to open a data connection between two peers
 var rtc = { // stun servers in config allow client to introspect a communication path to offer a remote peer
     config: {'iceServers': [ {'urls': 'stun:stun.stunprotocol.org:3478'}, {'urls': 'stun:stun.l.google.com:19302'} ]},
@@ -32,7 +32,7 @@ var rtc = { // stun servers in config allow client to introspect a communication
         rtc.peer.createAnswer().then(function onAnswer(answer){ // create answer to remote peer that offered
             return rtc.peer.setLocalDescription(answer);        // set that offer as our local discripion
         }).then(function onOfferSetDesc(){
-            ws.send({type: 'answer', oid: localStorage.oid, sdp: rtc.peer.localDescription, friendId: ws.friendId}); // send offer to friend
+            ws.send({type: 'answer', oid: localStorage.oid, sdp: rtc.peer.localDescription, peerId: ws.peerId}); // send offer to friend
         });                                                     // note answer is shown to user in onicecandidate event above once resolved
     }
 };
@@ -50,12 +50,11 @@ var dataPeer = {
         };    // handle events upon opening connection
         receiveChannel.onclose = function onClose(){dataPeer.connected = false;}; // doenst seem to work on closing a tab
     },
-    incoming: function(event){                 // handle incoming socket messages
-        var req = {type: null};                // request
-        try {req = JSON.parse(event.data);}catch(error){}       // probably should be wrapped in error handler
-        var res = {type: null};                // response
-        if(req.type === 'disconnect'){
-            prompt.nps(ws.friendId, app.showConnect);       // ask nps question and show ability to connect once disconnected
+    incoming: function(event){                              // handle incoming rtc messages
+        var req = {type: null};                             // request defualt
+        try {req = JSON.parse(event.data);}catch(error){}   // probably should be wrapped in error handler
+        var res = {type: null};                             // response default
+        if(req.type === 'disconnect'){                      // recieved when peer ends conversation
             app.closeConnection();                          // needs to happend after friend id is passed to nps
         } else if(req.type === 'connect'){
             app.discription.innerHTML = 'connected to ' + req.username;
@@ -77,7 +76,7 @@ var dataPeer = {
 };
 
 var ws = {
-    friendId: '',      // socket id of peer connection
+    peerId: '',      // socket id of peer connection
     instance: null,    // placeholder for websocket object
     connected: false,  // set to true when connected to server
     server: document.getElementById('socketserver').innerHTML,
@@ -97,9 +96,10 @@ var ws = {
         catch(error){}                   // if error we don't care there is a default object
         var res = {type: null};          // response
         if(req.type === 'offer'){
-            ws.friendId = req.id;
+            ws.peerId = req.id;
             rtc.init(function onInit(){rtc.giveAnswer(req.sdp);});
         } else if(req.type === 'answer'){
+            ws.peerId = req.id;
             rtc.peer.setRemoteDescription(req.sdp);
         } else if(req.type === 'ice'){
             rtc.peer.addIceCandidate(req.canidate);
@@ -173,15 +173,15 @@ var prompt = {
             }
         }
     },
-    nps: function(friendId, onAnswer){
+    nps: function(peerId, onAnswer){
         prompt.load(function(){
-            prompt.create(postChat[0], friendId, function whenAnswered(){
+            prompt.create(postChat[0], peerId, function whenAnswered(){
                 prompt.remove();
                 onAnswer();
             });
         });
     },
-    create: function(questionObj, friendId, onAnswer){
+    create: function(questionObj, peerId, onAnswer){
         prompt.form.hidden = false;
         prompt.feild.innerHTML = questionObj.question;
         var answerBundle = document.createElement('div');
@@ -204,8 +204,6 @@ var prompt = {
         }
         function whenDone(answers){
             if(answers){localStorage.answers = JSON.stringify(answers);}
-            var test = JSON.parse(localStorage.answers);
-            for(var j = 0; j < test.length; j++){console.log(test[j]);}
             onAnswer();
         }
         prompt.form.addEventListener('submit', function(event){
@@ -217,14 +215,14 @@ var prompt = {
                     if(localStorage.answers){
                         var answers = JSON.parse(localStorage.answers);
                         for(var peer = 0; peer < answers.length; peer++){
-                            if(answers[peer].oid === friendId){
+                            if(answers[peer].oid === peerId){
                                 answers[peer].nps = unifiedIndex;
                                 whenDone(answers);
                                 return;
                             }
                         }
-                        answers.push({oid: friendId, nps: unifiedIndex});
-                    } else { localStorage.answers = JSON.stringify([{oid: friendId, nps: unifiedIndex}]);}
+                        answers.push({oid: peerId, nps: unifiedIndex});
+                    } else { localStorage.answers = JSON.stringify([{oid: peerId, nps: unifiedIndex}]);}
                     whenDone();
                     return;
                 }
@@ -319,8 +317,10 @@ var app = {
         media.init();
     },
     closeConnection: function(){
+        // console.log(ws.peerId);
+        prompt.nps(ws.peerId, app.showConnect);
         if(rtc.peer){ rtc.peer.close(); rtc.peer = null;} // clean up pre existing rtc connection if there
-        ws.friendId = '';
+        ws.peerId = '';
         app.discription.innerHTML = '';
         app.connectButton.hidden = true;
     },
@@ -337,8 +337,7 @@ var app = {
         if(dataPeer.connected){
             dataPeer.send({type: 'disconnect'});                  // tell friend we are done
             ws.send({oid: localStorage.oid, type: 'disconnect'}); // tell server we are done
-            prompt.nps(ws.friendId, app.showConnect);
-            app.closeConnection();
+            app.closeConnection();                                // do things that need to be done when done
         } else {
             rtc.init(function(){rtc.createOffer();});
             prompt.caller = true;
