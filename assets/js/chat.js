@@ -1,5 +1,5 @@
 // rtctest.js ~ copyright 2019 Paul Beaudet ~ MIT License
-// rtcSignal version - 1.0.20
+// rtcSignal version - 1.0.21
 // This test requires at least two browser windows, to open a data connection between two peers
 var rtc = { // stun servers in config allow client to introspect a communication path to offer a remote peer
     config: {'iceServers': [ {'urls': 'stun:stun.stunprotocol.org:3478'}, {'urls': 'stun:stun.l.google.com:19302'} ]},
@@ -106,7 +106,7 @@ var ws = {
         } else if(req.type === 'pool'){
             pool.increment(req.count);
         } else if(req.type === 'nomatch'){
-            app.showConnect();
+            app.showConnect(true);   // past true to keep in connection pool
             app.discription.innerHTML = 'no soup for you';
         } // else { console.log(event.data); }    // will log message regardless of whether it was parsed
         if(res.type){ws.send(res);}
@@ -139,8 +139,6 @@ var media = {
         var onMediaCallback = onMedia ? onMedia : function noSoupForYou(){};
         navigator.mediaDevices.getUserMedia({audio: true, video: false}).then(function onMedia(mediaStream){
             media.stream = mediaStream;
-            app.setupButton.style.visibility = 'hidden';
-            app.showConnect();
             var audioTracks = mediaStream.getAudioTracks();
             if(audioTracks.length){
                 if(audioTracks[0].enabled){
@@ -293,7 +291,6 @@ var serviceTime = {
 };
 
 var app = {
-    modeButton: document.getElementById('modeButton'),
     setupInput: document.getElementById('setupInput'),
     setupButton: document.getElementById('setupButton'),
     connectButton: document.getElementById('connectButton'),
@@ -325,17 +322,20 @@ var app = {
         app.setupButton.innerHTML = 'Please allow Microphone, in order to connect';
         localStorage.username = app.setupInput.value;
         app.setupInput.hidden = true;
-        media.init();
+        media.init(function onMic(){
+            app.setupButton.hidden = true;
+            app.showConnect(true);
+        });
     },
     closeConnection: function(){
-        // console.log(ws.peerId);
         prompt.nps(ws.peerId, app.showConnect);
         if(rtc.peer){ rtc.peer.close(); rtc.peer = null;} // clean up pre existing rtc connection if there
         ws.peerId = '';
         app.discription.innerHTML = '';
         app.connectButton.hidden = true;
     },
-    showConnect: function(){
+    showConnect: function(keepInConnectionPool){
+        if(!keepInConnectionPool){ws.send({oid: localStorage.oid, type: 'disconnect'});} // tell server we are with previous connection
         app.discription.innerHTML = 'Press connect when ready to get a match';
         app.connectButton.innerHTML = 'Connect';
         app.connectButton.hidden = false;
@@ -347,7 +347,6 @@ var app = {
     toggleConnection: function(){
         if(dataPeer.connected){
             dataPeer.send({type: 'disconnect'});                  // tell friend we are done
-            ws.send({oid: localStorage.oid, type: 'disconnect'}); // tell server we are done
             app.closeConnection();                                // do things that need to be done when done
         } else {
             rtc.init(function(){rtc.createOffer();});
