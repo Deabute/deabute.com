@@ -103,6 +103,8 @@ var ws = {
             rtc.peer.setRemoteDescription(req.sdp);
         } else if(req.type === 'ice'){
             rtc.peer.addIceCandidate(req.canidate);
+        } else if(req.type === 'pool'){
+            pool.increment(req.count);
         } else if(req.type === 'nomatch'){
             app.showConnect();
             app.discription.innerHTML = 'no soup for you';
@@ -118,6 +120,15 @@ var ws = {
             console.log('disconnect issue');
             return false;
         }
+    }
+};
+
+var pool = {
+    display: document.getElementById('pool'),
+    count: 1, // assume peer is counted in pool
+    increment: function(amount){
+        pool.count = pool.count + amount;
+        pool.display.innerHTML = pool.count;
     }
 };
 
