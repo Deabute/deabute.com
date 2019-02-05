@@ -3,18 +3,16 @@
 // This test requires at least two browser windows, to open a data connection between two peers
 var rtc = { // stun servers in config allow client to introspect a communication path to offer a remote peer
     config: {'iceServers': [ {'urls': 'stun:stun.stunprotocol.org:3478'}, {'urls': 'stun:stun.l.google.com:19302'} ]},
-    peer: null,                      // placeholder for parent webRTC object instance
-    init: function(onSetupCB){
+    peer: null,                                                  // placeholder for parent webRTC object instance
+    init: function(onSetupCB){                                  // varify mediastream before calling
         rtc.peer = new RTCPeerConnection(rtc.config);           // create new instance for local client
-        if(media.stream){
-            media.stream.getTracks().forEach(function(track){rtc.peer.addTrack(track, media.stream);});
-        } else { console.log('Connecting before media obtained');}
-        rtc.peer.ontrack = function(event){media.output.srcObject = event.streams[0];};
+        media.stream.getTracks().forEach(function(track){rtc.peer.addTrack(track, media.stream);});
+        rtc.peer.ontrack = media.ontrack;                       // behavior upon reciving track
         dataPeer.channel = rtc.peer.createDataChannel('chat');  // Creates data endpoint for client's side of connection
         rtc.peer.onicecandidate = function onIce(event) {       // on address info being introspected (after local discription is set)
-            if(event.candidate){                                // canididate property denotes data as multiple canidates can resolve
-                ws.send({type: 'ice', oid: localStorage.oid, canidate: event.candidate});
-            }                                                   // null event.canidate means we finished recieving canidates
+            if(event.candidate){                                // canididate property denotes data as multiple candidates can resolve
+                ws.send({type: 'ice', oid: localStorage.oid, candidate: event.candidate});
+            }                                                   // null event.candidate means we finished recieving candidates
         };    // Also note that sdp is going to be negotiated first regardless of any media being involved. its faster to resolve
         rtc.peer.ondatachannel = dataPeer.newChannel;           // creates data endpoints for remote peer on rtc connection
         onSetupCB();                                            // create and offer or answer depending on what intiated
@@ -68,10 +66,7 @@ var dataPeer = {
         if(dataPeer.connected){
             dataPeer.channel.send(sendObj);
             return true;
-        } else {
-            console.log('disconnected from peer');
-            return false;
-        }
+        } else { return false;}
     }
 };
 
@@ -80,7 +75,7 @@ var ws = {
     instance: null,    // placeholder for websocket object
     connected: false,  // set to true when connected to server
     server: document.getElementById('socketserver').innerHTML,
-    init: function(){
+    init: function(onConnection){
         ws.instance = new WebSocket(ws.server);
         ws.instance.onopen = function(event){
             ws.connected = true;
@@ -88,6 +83,7 @@ var ws = {
             ws.send({type: 'connected', oid: localStorage.oid});
             ws.onclose = function onSocketClose(){ws.connected = false;};
             ws.onerror = function onSocketError(){console.log(error);};
+            onConnection();
         };
     },
     incoming: function(event){         // handle incoming socket messages
@@ -102,7 +98,7 @@ var ws = {
             ws.peerId = req.id;
             rtc.peer.setRemoteDescription(req.sdp);
         } else if(req.type === 'ice'){
-            rtc.peer.addIceCandidate(req.canidate);
+            rtc.peer.addIceCandidate(req.candidate);
         } else if(req.type === 'pool'){
             pool.increment(req.count);
         } else if(req.type === 'nomatch'){
@@ -116,14 +112,12 @@ var ws = {
         if(ws.connected){
             ws.instance.send(msg);
             return true;
-        } else {
-            console.log('disconnect issue');
-            return false;
-        }
+        } else { return false; }
     }
 };
 
 var pool = {
+    trigger: 2, // amount of connections it takes to trigger a connect event
     display: document.getElementById('pool'),
     count: 0, // assume peer is counted in pool
     increment: function(amount){
@@ -141,11 +135,12 @@ var media = {
             media.stream = mediaStream;
             var audioTracks = mediaStream.getAudioTracks();
             if(audioTracks.length){
-                if(audioTracks[0].enabled){onMediaCallback();}
-                else                      {onMediaCallback('Microphone muted');}
-            } else {onMediaCallback('woah! no audio');}
-        }).catch(function onNoMedia(error){onMediaCallback(error);});
-    }
+                if(audioTracks[0].enabled){onMediaCallback(null, mediaStream);}
+                else                      {onMediaCallback('Microphone muted', null);}
+            } else {onMediaCallback('woah! no audio', null);}
+        }).catch(function onNoMedia(error){onMediaCallback(error, null);});
+    },
+    ontrack: function(event){media.output.srcObject = event.streams[0];}
 };
 
 var prompt = {
@@ -317,20 +312,21 @@ var app = {
             });
         });
     },
+    issue: function(issue){
+        app.discription.innerHTML = 'Sorry there was an issue: ' + issue +
+        '\n Unmute, remove restriction of microphone in address bar and try again, reload, or use chrome/firefox maybe?';
+        app.setupButton.hidden = false;
+    },
     setup: function(){
         app.setupButton.hidden = true;
         app.discription.innerHTML = 'Please allow Microphone, in order to connect';
         localStorage.username = app.setupInput.value;
         app.setupInput.hidden = true;
-        media.init(function onMic(issue){
-            if(issue){
-                app.discription.innerHTML = 'Sorry there was an issue: ' + issue +
-                '\n Unmute, remove restriction of microphone in address bar and try again, reload, or use chrome/firefox maybe?';
-                app.setupButton.hidden = false;
-            } else {
-                app.showConnect(true);
-                ws.init();
-            }
+        media.init(function onMic(issue, mediaStream){
+            if(issue){ app.issue(issue);}
+            else if (mediaStream){
+                ws.init(function(){app.showConnect(true);});
+            } else {app.issue('No media stream present');}
         });
     },
     closeConnection: function(){
