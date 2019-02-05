@@ -80,12 +80,12 @@ var ws = {
     instance: null,    // placeholder for websocket object
     connected: false,  // set to true when connected to server
     server: document.getElementById('socketserver').innerHTML,
-    init: function(oid){
+    init: function(){
         ws.instance = new WebSocket(ws.server);
         ws.instance.onopen = function(event){
             ws.connected = true;
             ws.instance.onmessage = ws.incoming;
-            ws.send({type: 'connected', oid: oid});
+            ws.send({type: 'connected', oid: localStorage.oid});
             ws.onclose = function onSocketClose(){ws.connected = false;};
             ws.onerror = function onSocketError(){console.log(error);};
         };
@@ -125,7 +125,7 @@ var ws = {
 
 var pool = {
     display: document.getElementById('pool'),
-    count: 1, // assume peer is counted in pool
+    count: 0, // assume peer is counted in pool
     increment: function(amount){
         pool.count = pool.count + amount;
         pool.display.innerHTML = pool.count;
@@ -141,10 +141,9 @@ var media = {
             media.stream = mediaStream;
             var audioTracks = mediaStream.getAudioTracks();
             if(audioTracks.length){
-                if(audioTracks[0].enabled){
-                } else{console.log('Microphone muted');}
-            } else {console.log('woah! no audio');}
-            onMediaCallback(mediaStream);
+                if(audioTracks[0].enabled){onMediaCallback();}
+                else                      {onMediaCallback('Microphone muted');}
+            } else {onMediaCallback('woah! no audio');}
         }).catch(function onNoMedia(error){onMediaCallback(error);});
     }
 };
@@ -312,19 +311,26 @@ var app = {
                         } else {
                             app.setupButton.innerHTML = 'Enter name, allow microphone';
                         }
-                        ws.init(oid);
+                        // ws.init(oid);
                     }
                 } else {app.discription.innerHTML = 'Incompatible browser';}
             });
         });
     },
     setup: function(){
-        app.setupButton.innerHTML = 'Please allow Microphone, in order to connect';
+        app.setupButton.hidden = true;
+        app.discription.innerHTML = 'Please allow Microphone, in order to connect';
         localStorage.username = app.setupInput.value;
         app.setupInput.hidden = true;
-        media.init(function onMic(){
-            app.setupButton.hidden = true;
-            app.showConnect(true);
+        media.init(function onMic(issue){
+            if(issue){
+                app.discription.innerHTML = 'Sorry there was an issue: ' + issue +
+                '\n Unmute, remove restriction of microphone in address bar and try again, reload, or use chrome/firefox maybe?';
+                app.setupButton.hidden = false;
+            } else {
+                app.showConnect(true);
+                ws.init();
+            }
         });
     },
     closeConnection: function(){
