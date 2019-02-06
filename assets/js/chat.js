@@ -55,9 +55,7 @@ var dataPeer = {
         if(req.type === 'disconnect'){                      // recieved when peer ends conversation
             app.closeConnection();                          // needs to happend after friend id is passed to nps
         } else if(req.type === 'connect'){
-            app.discription.innerHTML = 'connected to ' + req.username;
-            app.connectButton.innerHTML = 'Disconnect';
-            app.connectButton.hidden = false;
+            app.whenConnected(req.username);
         } // else { console.log(event.data); }        // will log message regardless of whether it was parsed
         if(res.type){dataPeer.send(res);}
     },
@@ -71,7 +69,7 @@ var dataPeer = {
 };
 
 var ws = {
-    peerId: '',      // socket id of peer connection
+    peerId: '',        // socket id of peer connection
     instance: null,    // placeholder for websocket object
     connected: false,  // set to true when connected to server
     server: document.getElementById('socketserver').innerHTML,
@@ -99,6 +97,8 @@ var ws = {
             rtc.peer.setRemoteDescription(req.sdp);
         } else if(req.type === 'ice'){
             rtc.peer.addIceCandidate(req.candidate);
+        } else if(req.type === 'makeOffer'){
+            app.connect();
         } else if(req.type === 'pool'){
             pool.increment(req.count);
         } else if(req.type === 'nomatch'){
@@ -325,37 +325,51 @@ var app = {
         media.init(function onMic(issue, mediaStream){
             if(issue){ app.issue(issue);}
             else if (mediaStream){
-                ws.init(function(){app.showConnect(true);});
+                ws.init(function(){app.waiting(true);});
             } else {app.issue('No media stream present');}
         });
     },
     closeConnection: function(){
-        prompt.nps(ws.peerId, app.showConnect);
+        ws.send({type: 'chatEnd', oid: localStorage.oid});
+        prompt.nps(ws.peerId, function(){
+            ws.send({type: 'repool', oid: localStorage.oid});
+            app.waiting();
+        });
         if(rtc.peer){ rtc.peer.close(); rtc.peer = null;} // clean up pre existing rtc connection if there
         ws.peerId = '';
         app.discription.innerHTML = '';
         app.connectButton.hidden = true;
     },
     showConnect: function(keepInConnectionPool){
-        if(!keepInConnectionPool){ws.send({oid: localStorage.oid, type: 'disconnect'});} // tell server we are with previous connection
+        if(!keepInConnectionPool){ws.send({type: 'disconnect', oid: localStorage.oid});} // tell server we are with previous connection
         app.discription.innerHTML = 'Press connect when ready to get a match';
         app.connectButton.innerHTML = 'Connect';
         app.connectButton.hidden = false;
         prompt.caller = false;
     },
-    hideConnect: function(){
+    whenConnected: function(username){
+        app.discription.innerHTML = 'connected to ' + username;
+        app.connectButton.innerHTML = 'Disconnect';
+        app.connectButton.hidden = false;
+    },
+    waiting: function(firstMatch){
+        app.discription.innerHTML = 'Waiting for peers';
+        app.connectButton.hidden = true;
+    },
+    disconnect: function(){
+        dataPeer.send({type: 'disconnect'});                  // tell friend we are done
+        app.closeConnection();                                // do things that need to be done when done
+    },
+    connect: function(){
+        rtc.init(function(){rtc.createOffer();});
+        prompt.caller = true;
+        app.discription.innerHTML = 'connecting';
         app.connectButton.hidden = true;
     },
     toggleConnection: function(){
-        if(dataPeer.connected){
-            dataPeer.send({type: 'disconnect'});                  // tell friend we are done
-            app.closeConnection();                                // do things that need to be done when done
-        } else {
-            rtc.init(function(){rtc.createOffer();});
-            prompt.caller = true;
-            app.discription.innerHTML = 'connecting';
-            app.hideConnect();
-        }
+        app.disconnect();
+        // if(dataPeer.connected){ app.disconnect();}
+        // else                  { app.connect(); }
     }
 };
 
