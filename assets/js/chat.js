@@ -144,12 +144,22 @@ var media = {
             media.stream = mediaStream;
             var audioTracks = mediaStream.getAudioTracks();
             if(audioTracks.length){
-                if(audioTracks[0].enabled){onMediaCallback(null, mediaStream);}
+                if(audioTracks[0].enabled){onMediaCallback(null, mediaStream); audioTracks[0].enabled = false;}
                 else                      {onMediaCallback('Microphone muted', null);}
             } else {onMediaCallback('woah! no audio', null);}
         }).catch(function onNoMedia(error){onMediaCallback(error, null);});
     },
-    ontrack: function(event){media.output.srcObject = event.streams[0];}
+    ontrack: function(event){media.output.srcObject = event.streams[0];},
+    switchAudio: function(on){
+        var audioTracks = media.stream.getAudioTracks();
+        if(audioTracks.length){
+            if(on){
+                audioTracks[0].enabled = true;
+            } else {
+                audioTracks[0].enabled = false;
+            }
+        }
+    }
 };
 
 var prompt = {
@@ -338,8 +348,8 @@ var app = {
         });
     },
     closeConnection: function(){
+        media.switchAudio(false);
         ws.send({type: 'chatEnd', oid: localStorage.oid});
-        media.output.autoplay = false;
         prompt.nps(ws.peerId, function(){
             ws.send({type: 'repool', oid: localStorage.oid});
             prompt.caller = false;
@@ -363,7 +373,8 @@ var app = {
         dataPeer.whenReady(username);
     },
     whenConnected: function(username){
-        media.output.autoplay = true;
+        media.switchAudio(true);
+        // media.output.autoplay = true;
         app.discription.innerHTML = 'connected to ' + username;
         app.connectButton.onclick = app.disconnect;
         app.connectButton.innerHTML = 'Disconnect';
