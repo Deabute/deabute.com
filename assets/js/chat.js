@@ -55,7 +55,8 @@ var dataPeer = {
         if(req.type === 'disconnect'){                      // recieved when peer ends conversation
             app.closeConnection();                          // needs to happend after friend id is passed to nps
         } else if(req.type === 'connect'){
-            app.whenConnected(req.username);
+            app.rtcReady(req.username);
+            // app.whenConnected(req.username);
         } // else { console.log(event.data); }        // will log message regardless of whether it was parsed
         if(res.type){dataPeer.send(res);}
     },
@@ -102,9 +103,9 @@ var ws = {
         } else if(req.type === 'pool'){
             pool.increment(req.count);
         } else if(req.type === 'nomatch'){
-            app.showConnect(true);   // past true to keep in connection pool
             app.discription.innerHTML = 'no soup for you';
-        } // else { console.log(event.data); }    // will log message regardless of whether it was parsed
+            setTimeout(app.waiting, 2000);
+        }
         if(res.type){ws.send(res);}
     },
     send: function(msg){
@@ -289,6 +290,7 @@ var app = {
     setupButton: document.getElementById('setupButton'),
     connectButton: document.getElementById('connectButton'),
     discription: document.getElementById('discription'),
+    inCall: false,
     init: function(){
         document.addEventListener('DOMContentLoaded', function(){       // wait till dom is loaded before manipulating it
             persistence.init(function onLocalRead(capible, oid, username){
@@ -306,7 +308,6 @@ var app = {
                         } else {
                             app.setupButton.innerHTML = 'Enter name, allow microphone';
                         }
-                        // ws.init(oid);
                     }
                 } else {app.discription.innerHTML = 'Incompatible browser';}
             });
@@ -331,8 +332,11 @@ var app = {
     },
     closeConnection: function(){
         ws.send({type: 'chatEnd', oid: localStorage.oid});
+        media.output.autoplay = false;
+        app.inCall = false;
         prompt.nps(ws.peerId, function(){
             ws.send({type: 'repool', oid: localStorage.oid});
+            prompt.caller = false;
             app.waiting();
         });
         if(rtc.peer){ rtc.peer.close(); rtc.peer = null;} // clean up pre existing rtc connection if there
@@ -340,15 +344,19 @@ var app = {
         app.discription.innerHTML = '';
         app.connectButton.hidden = true;
     },
-    showConnect: function(keepInConnectionPool){
-        if(!keepInConnectionPool){ws.send({type: 'disconnect', oid: localStorage.oid});} // tell server we are with previous connection
-        app.discription.innerHTML = 'Press connect when ready to get a match';
-        app.connectButton.innerHTML = 'Connect';
+    rtcReady: function(username){
+        app.discription.innerHTML = 'Are you ready to chat?';
+        app.connectButton.innerHTML = 'Ready to talk';
+        app.connectButton.onclick = function(){app.clientReady(username);};
         app.connectButton.hidden = false;
-        prompt.caller = false;
+    },
+    clientReady: function(username){
+        media.output.autoplay = true;
+        app.whenConnected(username);
     },
     whenConnected: function(username){
         app.discription.innerHTML = 'connected to ' + username;
+        app.connectButton.onclick = app.disconnect;
         app.connectButton.innerHTML = 'Disconnect';
         app.connectButton.hidden = false;
     },
@@ -365,11 +373,6 @@ var app = {
         prompt.caller = true;
         app.discription.innerHTML = 'connecting';
         app.connectButton.hidden = true;
-    },
-    toggleConnection: function(){
-        app.disconnect();
-        // if(dataPeer.connected){ app.disconnect();}
-        // else                  { app.connect(); }
     }
 };
 

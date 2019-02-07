@@ -18,7 +18,7 @@ title:
 <textarea id="setupInput" rows="1" cols="16">Anonymous</textarea>
 <button onclick="app.setup()" type="button" id='setupButton'></button>
 <br>
-<button onclick="app.toggleConnection()" type="button" id='connectButton' hidden></button>
+<button type="button" id='connectButton' hidden></button>
 <div id="meta" hidden>
     <p id='host'>{{ site.url }}</p>
 {% if jekyll.environment == "production" %}
@@ -29,6 +29,6 @@ title:
     <p id=serviceWindow>f</p>
 {% endif %}
 </div>
-<audio id="mediaStream" autoplay> unsuported </audio>
+<audio id="mediaStream"> unsuported </audio>
 
 <script type="text/javascript" src="{{ site.url }}/assets/js/chat.js"></script>
