@@ -3,18 +3,23 @@ layout: page
 title:
 ---
 
-<span id="discription" style="float:left">Welcome! This is an app that connects you with new people through voice</span>
+<span style="float:left">
+    <label for=timebox> Next Confluence:</label>
+    <span name=timebox id="timebox">¯\_(ツ)_/¯</span>
+</span>
 <span style="float:right">
     <label for="pool">Pool:</label>
     <span name="pool" id="pool">?</span>
 </span>
 <br>
-<span id="rawObject"></span>
+<br>
+<span id="discription" style="float:left">Welcome! This is an app that connects you with new people through voice</span>
 <form id="promptForm" hidden>
     <p id="promptFeild"></p>
     <div id='formAnswers'></div>
     <button type="submit">Submit</button>
 </form>
+<br>
 <textarea id="setupInput" rows="1" cols="16">Anonymous</textarea>
 <button onclick="app.setup()" type="button" id='setupButton'></button>
 <br>

@@ -153,11 +153,8 @@ var media = {
     switchAudio: function(on){
         var audioTracks = media.stream.getAudioTracks();
         if(audioTracks.length){
-            if(on){
-                audioTracks[0].enabled = true;
-            } else {
-                audioTracks[0].enabled = false;
-            }
+            if(on){audioTracks[0].enabled = true;}
+            else  {audioTracks[0].enabled = false;}
         }
     }
 };
@@ -280,6 +277,8 @@ var persistence = {
 var serviceTime = {
     START: [5, 16],
     END: [5, 22],
+    countDown: 10,
+    box: document.getElementById('timebox'),
     WINDOW: document.getElementById('serviceWindow').innerHTML,
     next: function(){
         if(serviceTime.WINDOW === 't'){
@@ -300,6 +299,19 @@ var serviceTime = {
             startTime.setDate(startDate + 7);
             return startTime;
         } else { return false; }
+    },
+    check: function(onConfluence){
+        setTimeout(function nextSecond(){
+            if(serviceTime.countDown){
+                serviceTime.box.innerHTML = serviceTime.countDown;
+                serviceTime.countDown--;
+                serviceTime.check(onConfluence);
+            } else {
+                serviceTime.box.innerHTML = 0;
+                serviceTime.countDown = 10;
+                onConfluence();
+            }
+        }, 1000);
     }
 };
 
@@ -361,10 +373,12 @@ var app = {
         app.connectButton.hidden = true;
     },
     rtcReady: function(username){
-        app.discription.innerHTML = 'Are you ready to chat?';
-        app.connectButton.innerHTML = 'Ready to talk';
-        app.connectButton.onclick = function(){app.clientReady(username);};
-        app.connectButton.hidden = false;
+        serviceTime.check(function(){
+            app.discription.innerHTML = 'Are you ready to chat?';
+            app.connectButton.innerHTML = 'Ready to talk';
+            app.connectButton.onclick = function(){app.clientReady(username);};
+            app.connectButton.hidden = false;
+        });
     },
     clientReady: function(username){
         app.discription.innerHTML = 'Waiting for peer';
@@ -381,7 +395,7 @@ var app = {
         app.connectButton.hidden = false;
     },
     waiting: function(firstMatch){
-        app.discription.innerHTML = 'Waiting for peers';
+        app.discription.innerHTML = 'Waiting for connection pool to grow';
         app.connectButton.hidden = true;
     },
     disconnect: function(){
