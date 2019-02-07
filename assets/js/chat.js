@@ -38,6 +38,7 @@ var rtc = { // stun servers in config allow client to introspect a communication
 var dataPeer = {
     channel: null,
     connected: false,
+    ready: false,
     newChannel: function(event){
         receiveChannel = event.channel;                          // recieve channel events handlers created on connection
         receiveChannel.onerror = function onError(){};           // handling errors could be a good idea
@@ -54,10 +55,11 @@ var dataPeer = {
         var res = {type: null};                             // response default
         if(req.type === 'disconnect'){                      // recieved when peer ends conversation
             app.closeConnection();                          // needs to happend after friend id is passed to nps
+        } else if(req.type === 'ready'){
+            dataPeer.whenReady(req.username);
         } else if(req.type === 'connect'){
             app.rtcReady(req.username);
-            // app.whenConnected(req.username);
-        } // else { console.log(event.data); }        // will log message regardless of whether it was parsed
+        }
         if(res.type){dataPeer.send(res);}
     },
     send: function(sendObj){
@@ -66,6 +68,12 @@ var dataPeer = {
             dataPeer.channel.send(sendObj);
             return true;
         } else { return false;}
+    },
+    whenReady: function(username){
+        if(dataPeer.ready){
+            app.whenConnected(username);
+            dataPeer.ready = false;
+        } else {dataPeer.ready = true;}
     }
 };
 
@@ -290,7 +298,6 @@ var app = {
     setupButton: document.getElementById('setupButton'),
     connectButton: document.getElementById('connectButton'),
     discription: document.getElementById('discription'),
-    inCall: false,
     init: function(){
         document.addEventListener('DOMContentLoaded', function(){       // wait till dom is loaded before manipulating it
             persistence.init(function onLocalRead(capible, oid, username){
@@ -333,7 +340,6 @@ var app = {
     closeConnection: function(){
         ws.send({type: 'chatEnd', oid: localStorage.oid});
         media.output.autoplay = false;
-        app.inCall = false;
         prompt.nps(ws.peerId, function(){
             ws.send({type: 'repool', oid: localStorage.oid});
             prompt.caller = false;
@@ -351,10 +357,13 @@ var app = {
         app.connectButton.hidden = false;
     },
     clientReady: function(username){
-        media.output.autoplay = true;
-        app.whenConnected(username);
+        app.discription.innerHTML = 'Waiting for peer';
+        app.connectButton.hidden = true;
+        dataPeer.send({type:'ready', username: localStorage.username});
+        dataPeer.whenReady(username);
     },
     whenConnected: function(username){
+        media.output.autoplay = true;
         app.discription.innerHTML = 'connected to ' + username;
         app.connectButton.onclick = app.disconnect;
         app.connectButton.innerHTML = 'Disconnect';
