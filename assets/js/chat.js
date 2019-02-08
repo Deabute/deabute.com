@@ -36,12 +36,15 @@ var rtc = { // stun servers in config allow client to introspect a communication
         });                                                     // note answer is shown to user in onicecandidate event above once resolved
     },
     close: function(){
+        ws.send({type: 'endCon', oid: localStorage.oid});
         if(rtc.peer){ // clean up pre existing rtc connection if there
             rtc.peer.close();
             rtc.peer = null;
         }
+        var peerId = rtc.connectionId;
         dataPeer.connected = false;
         rtc.connectionId = '';
+        return peerId;
     }
 };
 
@@ -59,7 +62,7 @@ var dataPeer = {
             dataPeer.connected = true;
             dataPeer.send({type: 'connect', username: localStorage.username});
         };    // handle events upon opening connection
-        receiveChannel.onclose = function onClose(){dataPeer.connected = false;}; // doenst seem to work on closing a tab
+        receiveChannel.onclose = function onClose(){rtc.close();};
     },
     incoming: function(event){                              // handle incoming rtc messages
         var req = {type: null};                             // request defualt
@@ -67,7 +70,7 @@ var dataPeer = {
         if(req.type === 'disconnect'){                      // recieved when peer ends conversation
             dataPeer.clientReady = false;                   // no longer ready
             dataPeer.talking = false;                       // done talking
-            app.closeConnection();                          // needs to happend after friend id is passed to nps
+            app.disconnect();                               // needs to happend after friend id is passed to nps
         } else if(req.type === 'ready'){
             dataPeer.whenReady(req.username);
         } else if(req.type === 'connect'){
@@ -75,10 +78,11 @@ var dataPeer = {
             else                    {app.rtcReady(req.username);}
         }
     },
-    disconnect: function(){
+    disconnect: function(talking){
         dataPeer.send({type: 'disconnect'}); // tell friend we are done
         dataPeer.clientReady = false;        // no longer ready
         dataPeer.talking = false;            // done talking
+        return rtc.close();                  // return id of who we were talking to
     },
     send: function(sendObj){
         try{sendObj = JSON.stringify(sendObj);} catch(error){console.log(error);}
@@ -106,9 +110,9 @@ var dataPeer = {
         } return false;
     },
     missedTheBoat: function(){
+        rtc.close();
         dataPeer.clientReady = true;     // "I" am ready
         app.waiting();
-        rtc.close();
         ws.send({type: 'unmatched', oid: localStorage.oid}); // let server know we can be rematched
     }
 };
@@ -227,14 +231,13 @@ var prompt = {
             }
         }
     },
-    closingQuestion: function(onAnswer){
+    closingQuestion: function(peerId, onAnswer){
         prompt.load(function(){
-            prompt.create(postChat[0], rtc.connectionId, function whenAnswered(){
+            prompt.create(postChat[0], peerId, function whenAnswered(){
                 prompt.remove();
                 onAnswer();
             });
         });
-        rtc.close(); // close connection after passing peer id to nps create
     },
     create: function(questionObj, peerId, onAnswer){
         prompt.form.hidden = false;
@@ -398,10 +401,10 @@ var app = {
             } else {app.issue('No media stream present');}
         });
     },
-    closeConnection: function(){
+    disconnect: function(){
         media.switchAudio(false);
-        ws.send({type: 'chatEnd', oid: localStorage.oid});
-        prompt.closingQuestion(function(){ // closes rtc connection, order important
+        var peerId = dataPeer.disconnect();
+        prompt.closingQuestion(peerId, function(){ // closes rtc connection, order important
             ws.send({type: 'repool', oid: localStorage.oid});
             app.waiting();
         });
@@ -436,10 +439,6 @@ var app = {
     waiting: function(){
         app.discription.innerHTML = 'Waiting for connection pool to grow';
         app.connectButton.hidden = true;
-    },
-    disconnect: function(){
-        dataPeer.disconnect();
-        app.closeConnection();                                // do things that need to be done when done
     },
     connect: function(){
         rtc.init(function(){rtc.createOffer();});
