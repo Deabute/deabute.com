@@ -126,7 +126,6 @@ var ws = {
 };
 
 var pool = {
-    trigger: 2, // amount of connections it takes to trigger a connect event
     display: document.getElementById('pool'),
     count: 0, // assume peer is counted in pool
     increment: function(amount){
@@ -275,9 +274,10 @@ var persistence = {
 };
 
 var serviceTime = {
+    DEBUG: 5,
     START: [5, 16],
     END: [5, 22],
-    countDown: 10,
+    countDown: serviceTime.DEBUG,
     box: document.getElementById('timebox'),
     WINDOW: document.getElementById('serviceWindow').innerHTML,
     next: function(){
@@ -308,7 +308,7 @@ var serviceTime = {
                 serviceTime.check(onConfluence);
             } else {
                 serviceTime.box.innerHTML = 0;
-                serviceTime.countDown = 10;
+                serviceTime.countDown = serviceTime.DEBUG;
                 onConfluence();
             }
         }, 1000);
@@ -405,7 +405,6 @@ var app = {
     connect: function(){
         rtc.init(function(){rtc.createOffer();});
         prompt.caller = true;
-        app.discription.innerHTML = 'connecting';
         app.connectButton.hidden = true;
     }
 };
