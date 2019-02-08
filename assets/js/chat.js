@@ -388,7 +388,7 @@ var app = {
     },
     whenConnected: function(username){
         media.switchAudio(true);
-        // media.output.autoplay = true;
+        ws.send({type:'unpool'});
         app.discription.innerHTML = 'connected to ' + username;
         app.connectButton.onclick = app.disconnect;
         app.connectButton.innerHTML = 'Disconnect';
