@@ -3,7 +3,8 @@
 // This test requires at least two browser windows, to open a data connection between two peers
 var rtc = { // stun servers in config allow client to introspect a communication path to offer a remote peer
     config: {'iceServers': [ {'urls': 'stun:stun.stunprotocol.org:3478'}, {'urls': 'stun:stun.l.google.com:19302'} ]},
-    peer: null,                                                  // placeholder for parent webRTC object instance
+    peer: null,                                                 // placeholder for parent webRTC object instance
+    connectionId: '',
     init: function(onSetupCB){                                  // varify mediastream before calling
         rtc.peer = new RTCPeerConnection(rtc.config);           // create new instance for local client
         media.stream.getTracks().forEach(function(track){rtc.peer.addTrack(track, media.stream);});
@@ -25,20 +26,31 @@ var rtc = { // stun servers in config allow client to introspect a communication
             ws.send({type: 'offer', oid: localStorage.oid, sdp: rtc.peer.localDescription}); // send offer to connect
         });
     },
-    giveAnswer: function(sdp){
+    giveAnswer: function(sdp, oidFromOffer){
         rtc.peer.setRemoteDescription(sdp);
+        rtc.connectionId = oidFromOffer;
         rtc.peer.createAnswer().then(function onAnswer(answer){ // create answer to remote peer that offered
             return rtc.peer.setLocalDescription(answer);        // set that offer as our local discripion
         }).then(function onOfferSetDesc(){
-            ws.send({type: 'answer', oid: localStorage.oid, sdp: rtc.peer.localDescription, peerId: ws.peerId}); // send offer to friend
+            ws.send({type: 'answer', oid: localStorage.oid, sdp: rtc.peer.localDescription, peerId: oidFromOffer}); // send offer to friend
         });                                                     // note answer is shown to user in onicecandidate event above once resolved
+    },
+    close: function(){
+        if(rtc.peer){ // clean up pre existing rtc connection if there
+            rtc.peer.close();
+            rtc.peer = null;
+        }
+        dataPeer.connected = false;
+        rtc.connectionId = '';
     }
 };
 
 var dataPeer = {
     channel: null,
-    connected: false,
-    ready: false,
+    connected: false,   // WE, two computer peers are connected
+    ready: false,       // other human is ready
+    clientReady: false, // I, human am ready
+    talking: false,     // WE, humans are talking
     newChannel: function(event){
         receiveChannel = event.channel;                          // recieve channel events handlers created on connection
         receiveChannel.onerror = function onError(){};           // handling errors could be a good idea
@@ -52,15 +64,21 @@ var dataPeer = {
     incoming: function(event){                              // handle incoming rtc messages
         var req = {type: null};                             // request defualt
         try {req = JSON.parse(event.data);}catch(error){}   // probably should be wrapped in error handler
-        var res = {type: null};                             // response default
         if(req.type === 'disconnect'){                      // recieved when peer ends conversation
+            dataPeer.clientReady = false;                   // no longer ready
+            dataPeer.talking = false;                       // done talking
             app.closeConnection();                          // needs to happend after friend id is passed to nps
         } else if(req.type === 'ready'){
             dataPeer.whenReady(req.username);
         } else if(req.type === 'connect'){
-            app.rtcReady(req.username);
+            if(dataPeer.clientReady){dataPeer.readySignal(req.username);}
+            else                    {app.rtcReady(req.username);}
         }
-        if(res.type){dataPeer.send(res);}
+    },
+    disconnect: function(){
+        dataPeer.send({type: 'disconnect'}); // tell friend we are done
+        dataPeer.clientReady = false;        // no longer ready
+        dataPeer.talking = false;            // done talking
     },
     send: function(sendObj){
         try{sendObj = JSON.stringify(sendObj);} catch(error){console.log(error);}
@@ -69,16 +87,33 @@ var dataPeer = {
             return true;
         } else { return false;}
     },
+    readySignal: function(username){
+        dataPeer.send({type:'ready', username: localStorage.username});
+        dataPeer.clientReady = true;
+        dataPeer.whenReady(username);
+    },
     whenReady: function(username){
         if(dataPeer.ready){
+            dataPeer.talking = true;
+            dataPeer.ready = false;           // "we" are ready
             app.whenConnected(username);
-            dataPeer.ready = false;
         } else {dataPeer.ready = true;}
+    },
+    checkIfEatingPie: function(buttonAction){ // happens at confluence time
+        if(!dataPeer.talking){                // given conversation is a dud
+            if(dataPeer.clientReady){dataPeer.missedTheBoat();}
+            else{return true;}                // this client is eating pie or doing something other than paying attention
+        } return false;
+    },
+    missedTheBoat: function(){
+        dataPeer.clientReady = true;     // "I" am ready
+        app.waiting();
+        rtc.close();
+        ws.send({type: 'unmatched', oid: localStorage.oid}); // let server know we can be rematched
     }
 };
 
 var ws = {
-    peerId: '',        // socket id of peer connection
     instance: null,    // placeholder for websocket object
     connected: false,  // set to true when connected to server
     server: document.getElementById('socketserver').innerHTML,
@@ -99,13 +134,14 @@ var ws = {
         catch(error){}                   // if error we don't care there is a default object
         var res = {type: null};          // response
         if(req.type === 'offer'){
-            ws.peerId = req.id;
-            rtc.init(function onInit(){rtc.giveAnswer(req.sdp);});
+            rtc.init(function onInit(){rtc.giveAnswer(req.sdp, req.id);});
         } else if(req.type === 'answer'){
-            ws.peerId = req.id;
+            rtc.connectionId = req.id;
             rtc.peer.setRemoteDescription(req.sdp);
         } else if(req.type === 'ice'){
             rtc.peer.addIceCandidate(req.candidate);
+        } else if(req.type === 'rematch'){
+            app.connect();
         } else if(req.type === 'makeOffer'){
             app.connect();
         } else if(req.type === 'pool'){
@@ -191,13 +227,14 @@ var prompt = {
             }
         }
     },
-    nps: function(peerId, onAnswer){
+    closingQuestion: function(onAnswer){
         prompt.load(function(){
-            prompt.create(postChat[0], peerId, function whenAnswered(){
+            prompt.create(postChat[0], rtc.connectionId, function whenAnswered(){
                 prompt.remove();
                 onAnswer();
             });
         });
+        rtc.close(); // close connection after passing peer id to nps create
     },
     create: function(questionObj, peerId, onAnswer){
         prompt.form.hidden = false;
@@ -222,6 +259,7 @@ var prompt = {
         }
         function whenDone(answers){
             if(answers){localStorage.answers = JSON.stringify(answers);}
+            prompt.caller = false;
             onAnswer();
         }
         prompt.form.addEventListener('submit', function(event){
@@ -306,11 +344,11 @@ var serviceTime = {
                 serviceTime.box.innerHTML = serviceTime.countDown;
                 serviceTime.countDown--;
                 if(serviceTime.countDown === 4){confirmation();}
+                else if(serviceTime.countDown === 1){onConfluence();}
                 serviceTime.check(confirmation, onConfluence);
             } else {
                 serviceTime.box.innerHTML = 0;
                 serviceTime.countDown = DEBUG_TIME;
-                onConfluence();
             }
         }, 1000);
     }
@@ -363,13 +401,10 @@ var app = {
     closeConnection: function(){
         media.switchAudio(false);
         ws.send({type: 'chatEnd', oid: localStorage.oid});
-        prompt.nps(ws.peerId, function(){
+        prompt.closingQuestion(function(){ // closes rtc connection, order important
             ws.send({type: 'repool', oid: localStorage.oid});
-            prompt.caller = false;
             app.waiting();
         });
-        if(rtc.peer){ rtc.peer.close(); rtc.peer = null;} // clean up pre existing rtc connection if there
-        ws.peerId = '';
         app.discription.innerHTML = '';
         app.connectButton.hidden = true;
     },
@@ -379,15 +414,16 @@ var app = {
             app.connectButton.innerHTML = 'Ready to talk';
             app.connectButton.onclick = function(){app.clientReady(username);};
             app.connectButton.hidden = false;
-        }, function onConfluence(){
-            console.log('maybe reconect');
+        }, function figureDuds(){
+            if(dataPeer.checkIfEatingPie()){
+                app.connectButton.onclick = dataPeer.missedTheBoat;
+            }
         });
     },
     clientReady: function(username){
         app.discription.innerHTML = 'Waiting for peer';
         app.connectButton.hidden = true;
-        dataPeer.send({type:'ready', username: localStorage.username});
-        dataPeer.whenReady(username);
+        dataPeer.readySignal(username);
     },
     whenConnected: function(username){
         media.switchAudio(true);
@@ -397,17 +433,17 @@ var app = {
         app.connectButton.innerHTML = 'Disconnect';
         app.connectButton.hidden = false;
     },
-    waiting: function(firstMatch){
+    waiting: function(){
         app.discription.innerHTML = 'Waiting for connection pool to grow';
         app.connectButton.hidden = true;
     },
     disconnect: function(){
-        dataPeer.send({type: 'disconnect'});                  // tell friend we are done
+        dataPeer.disconnect();
         app.closeConnection();                                // do things that need to be done when done
     },
     connect: function(){
         rtc.init(function(){rtc.createOffer();});
-        prompt.caller = true;
+        prompt.caller = true; // defines who instigator is, to split labor
         app.connectButton.hidden = true;
     }
 };
