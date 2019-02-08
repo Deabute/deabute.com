@@ -273,11 +273,11 @@ var persistence = {
     },
 };
 
+var DEBUG_TIME = 6;
 var serviceTime = {
-    DEBUG: 5,
     START: [5, 16],
     END: [5, 22],
-    countDown: serviceTime.DEBUG,
+    countDown: DEBUG_TIME,
     box: document.getElementById('timebox'),
     WINDOW: document.getElementById('serviceWindow').innerHTML,
     next: function(){
@@ -300,15 +300,16 @@ var serviceTime = {
             return startTime;
         } else { return false; }
     },
-    check: function(onConfluence){
+    check: function(confirmation, onConfluence){
         setTimeout(function nextSecond(){
             if(serviceTime.countDown){
                 serviceTime.box.innerHTML = serviceTime.countDown;
                 serviceTime.countDown--;
-                serviceTime.check(onConfluence);
+                if(serviceTime.countDown === 4){confirmation();}
+                serviceTime.check(confirmation, onConfluence);
             } else {
                 serviceTime.box.innerHTML = 0;
-                serviceTime.countDown = serviceTime.DEBUG;
+                serviceTime.countDown = DEBUG_TIME;
                 onConfluence();
             }
         }, 1000);
@@ -373,11 +374,13 @@ var app = {
         app.connectButton.hidden = true;
     },
     rtcReady: function(username){
-        serviceTime.check(function(){
+        serviceTime.check(function confirmation(){
             app.discription.innerHTML = 'Are you ready to chat?';
             app.connectButton.innerHTML = 'Ready to talk';
             app.connectButton.onclick = function(){app.clientReady(username);};
             app.connectButton.hidden = false;
+        }, function onConfluence(){
+            console.log('maybe reconect');
         });
     },
     clientReady: function(username){
