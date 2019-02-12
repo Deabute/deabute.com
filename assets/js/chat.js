@@ -43,6 +43,7 @@ var rtc = { // stun servers in config allow client to introspect a communication
         }
         var peerId = rtc.connectionId;
         dataPeer.connected = false;
+        dataPeer.ready = false;
         rtc.connectionId = '';
         return peerId;
     }
