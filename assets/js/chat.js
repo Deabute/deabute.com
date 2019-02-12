@@ -72,9 +72,10 @@ var dataPeer = {
             dataPeer.talking = false;                       // done talking
             app.disconnect();                               // needs to happend after friend id is passed to nps
         } else if(req.type === 'ready'){
-            dataPeer.whenReady(req.username);
+            dataPeer.whenReady(function whenBothClientReady(){app.whenConnected(req.username);});
         } else if(req.type === 'connect'){
-            if(dataPeer.clientReady){dataPeer.readySignal(req.username);}
+            console.log(req.username + ' connecting to us');
+            if(dataPeer.clientReady){dataPeer.readySignal(function whenBothClientReady(){app.whenConnected(req.username);});}
             else                    {app.rtcReady(req.username);}
         }
     },
@@ -91,29 +92,33 @@ var dataPeer = {
             return true;
         } else { return false;}
     },
-    readySignal: function(username){
+    readySignal: function(onReady){
         dataPeer.send({type:'ready', username: localStorage.username});
         dataPeer.clientReady = true;
-        dataPeer.whenReady(username);
+        dataPeer.whenReady(onReady);
     },
-    whenReady: function(username){
+    whenReady: function(onReady){
         if(dataPeer.ready){
             dataPeer.talking = true;
             dataPeer.ready = false;           // "we" are ready
-            app.whenConnected(username);
+            onReady();
         } else {dataPeer.ready = true;}
     },
     checkIfEatingPie: function(buttonAction){ // happens at confluence time
         if(!dataPeer.talking){                // given conversation is a dud
-            if(dataPeer.clientReady){dataPeer.missedTheBoat();}
-            else{return true;}                // this client is eating pie or doing something other than paying attention
+            if(dataPeer.clientReady){
+                dataPeer.missedTheBoat(true);
+            } else {
+                rtc.close();
+                return true;
+            } // this client is eating pie or doing something other than paying attention
         } return false;
     },
-    missedTheBoat: function(){
-        rtc.close();
-        dataPeer.clientReady = true;     // "I" am ready
-        app.waiting();
+    missedTheBoat: function(waiting){
+        if(waiting){ws.send({type:'reduce', oid: rtc.close()});}
+        else {dataPeer.clientReady = true;}  // "I" am finally ready
         ws.send({type: 'unmatched', oid: localStorage.oid}); // let server know we can be rematched
+        app.waiting();
     }
 };
 
@@ -169,6 +174,7 @@ var pool = {
     display: document.getElementById('pool'),
     count: 0, // assume peer is counted in pool
     increment: function(amount){
+        console.log('changing amount by ' + amount);
         pool.count = pool.count + amount;
         pool.display.innerHTML = pool.count;
     }
@@ -415,7 +421,11 @@ var app = {
         serviceTime.check(function confirmation(){
             app.discription.innerHTML = 'Are you ready to chat?';
             app.connectButton.innerHTML = 'Ready to talk';
-            app.connectButton.onclick = function(){app.clientReady(username);};
+            app.connectButton.onclick = function oneClientReady(){
+                app.discription.innerHTML = 'Waiting for peer';
+                app.connectButton.hidden = true;
+                dataPeer.readySignal(function whenBothClientReady(){app.whenConnected(username);});
+            };
             app.connectButton.hidden = false;
         }, function figureDuds(){
             if(dataPeer.checkIfEatingPie()){
@@ -423,14 +433,9 @@ var app = {
             }
         });
     },
-    clientReady: function(username){
-        app.discription.innerHTML = 'Waiting for peer';
-        app.connectButton.hidden = true;
-        dataPeer.readySignal(username);
-    },
     whenConnected: function(username){
         media.switchAudio(true);
-        ws.send({type:'unpool'});
+        ws.send({type:'reduce', oid: localStorage.oid});
         app.discription.innerHTML = 'connected to ' + username;
         app.connectButton.onclick = app.disconnect;
         app.connectButton.innerHTML = 'Disconnect';
