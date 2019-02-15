@@ -123,7 +123,7 @@ var dataPeer = {
         }
     },
     missedTheBoat: function(){
-        dataPeer.clientReady = true;                      // "I" am finally ready
+        if(pool.count){dataPeer.clientReady = true;}      // "I" am finally ready, if others are ready
         ws.send({type: 'repool', oid: localStorage.oid}); // let server know we can be rematched
         app.waiting();                                    // show waiting for rematch
     }
