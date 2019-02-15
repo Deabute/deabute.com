@@ -117,6 +117,7 @@ var dataPeer = {
                 app.waiting();                                       // show waiting for rematch
             } else {
                 console.log('eating pie');
+                if(!dataPeer.ready){ws.send({type: 'reduce', oid: peerID});} // in case both are eating pie
                 buttonElement.onclick = dataPeer.missedTheBoat;
             } // this client is eating pie or doing something other than paying attention
         }
