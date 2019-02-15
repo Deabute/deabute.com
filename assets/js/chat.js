@@ -112,30 +112,36 @@ var dataPeer = {
             var peerID = rtc.close();
             if(dataPeer.clientReady){
                 console.log('not eatting pie');
-                ws.send({type:'reduce', oid: peerID});
                 ws.send({type: 'unmatched', oid: localStorage.oid}); // let server know we can be rematched
                 app.waiting();                                       // show waiting for rematch
             } else {
                 console.log('eating pie');
-                if(!dataPeer.ready){ws.send({type: 'reduce', oid: peerID});} // in case both are eating pie
+                ws.reduce();
                 buttonElement.onclick = dataPeer.missedTheBoat;
             } // this client is eating pie or doing something other than paying attention
         }
     },
     missedTheBoat: function(){
-        if(pool.count){dataPeer.clientReady = true;}      // "I" am finally ready, if others are ready
-        ws.send({type: 'repool', oid: localStorage.oid}); // let server know we can be rematched
-        app.waiting();                                    // show waiting for rematch
+        if(pool.count){dataPeer.clientReady = true;}  // "I" am finally ready, if others are ready
+        ws.repool();                                  // let server know we can be rematched
+        app.waiting();                                // show waiting for rematch
     }
 };
 
 var ws = {
+    active: false,
     instance: null,    // placeholder for websocket object
     connected: false,  // set to true when connected to server
     server: document.getElementById('socketserver').innerHTML,
     init: function(onConnection){
         ws.instance = new WebSocket(ws.server);
         ws.instance.onopen = function(event){
+            ws.active = true;
+            window.addEventListener("beforeunload", function(event){
+                console.log('signing out');
+                event.returnValue = '';
+                ws.reduce();
+            });
             ws.connected = true;
             ws.instance.onmessage = ws.incoming;
             ws.send({type: 'connected', oid: localStorage.oid});
@@ -144,7 +150,15 @@ var ws = {
             onConnection();
         };
     },
-    incoming: function(event){         // handle incoming socket messages
+    reduce: function(){
+        if(ws.active){ws.send({type:'reduce', oid: localStorage.oid});}
+        ws.active = false;
+    },
+    repool: function(){
+        if(!ws.active){ws.send({type: 'repool', oid: localStorage.oid});} // let server know we can be rematched
+        ws.active = true;
+    },
+    incoming: function(event){           // handle incoming socket messages
         var req = {type: null};          // request
         try {req = JSON.parse(event.data);} // probably should be wrapped in error handler
         catch(error){}                   // if error we don't care there is a default object
@@ -422,7 +436,7 @@ var app = {
         media.switchAudio(false);
         var peerId = dataPeer.disconnect();
         prompt.closingQuestion(peerId, function(){ // closes rtc connection, order important
-            ws.send({type: 'repool', oid: localStorage.oid});
+            ws.repool();
             app.waiting();
         });
         app.discription.innerHTML = '';
@@ -442,7 +456,7 @@ var app = {
     },
     whenConnected: function(username){
         media.switchAudio(true);
-        ws.send({type:'reduce', oid: localStorage.oid});
+        ws.reduce();
         app.discription.innerHTML = 'connected to ' + username;
         app.connectButton.onclick = app.disconnect;
         app.connectButton.innerHTML = 'Disconnect';
