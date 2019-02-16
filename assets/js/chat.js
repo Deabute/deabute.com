@@ -44,6 +44,7 @@ var rtc = { // stun servers in config allow client to introspect a communication
         var peerId = rtc.connectionId;
         dataPeer.connected = false;
         dataPeer.ready = false;
+        dataPeer.peerName = '';
         rtc.connectionId = '';
         return peerId;
     }
@@ -55,6 +56,7 @@ var dataPeer = {
     ready: false,       // other human is ready
     clientReady: false, // I, human am ready
     talking: false,     // WE, humans are talking
+    peerName: '',
     newChannel: function(event){
         receiveChannel = event.channel;                          // recieve channel events handlers created on connection
         receiveChannel.onerror = function onError(){};           // handling errors could be a good idea
@@ -73,11 +75,11 @@ var dataPeer = {
             dataPeer.talking = false;                       // done talking
             app.disconnect();                               // needs to happend after friend id is passed to nps
         } else if(req.type === 'ready'){
-            dataPeer.whenReady(function whenBothClientReady(){app.whenConnected(req.username);});
+            dataPeer.whenReady(app.whenConnected);
         } else if(req.type === 'connect'){
-            console.log(req.username + ' connecting to us');
-            if(dataPeer.clientReady){dataPeer.readySignal(function whenBothClientReady(){app.whenConnected(req.username);});}
-            else                    {app.rtcReady(req.username);}
+            dataPeer.peerName = req.username;
+            if(dataPeer.clientReady){dataPeer.readySignal(app.whenConnected);}
+            else                    {serviceTime.check(app.consent, dataPeer.checkIfEatingPie);}
         }
     },
     disconnect: function(talking){
@@ -106,7 +108,7 @@ var dataPeer = {
             onReady();
         } else {dataPeer.ready = true;}
     },
-    checkIfEatingPie: function(buttonElement){ // happens at confluence time
+    checkIfEatingPie: function(){ // happens at confluence time
         console.log('checking for pie eaters');
         if(!dataPeer.talking){                 // given conversation is a dud
             var peerID = rtc.close();
@@ -117,7 +119,7 @@ var dataPeer = {
             } else {
                 console.log('eating pie');
                 ws.reduce();
-                buttonElement.onclick = dataPeer.missedTheBoat;
+                app.connectButton = dataPeer.missedTheBoat;
             } // this client is eating pie or doing something other than paying attention
         }
     },
@@ -347,49 +349,96 @@ var persistence = {
 
 var DEBUG_TIME = 6;
 var serviceTime = {
+    DEBUG: false,
+    begin: new Date(),
     START: [0, 13],
     END: [0, 14],
     PREP: 10,    // minutes of time a client can connect early
-    countDown: DEBUG_TIME,
+    countDown: 0,
     box: document.getElementById('timebox'),
     WINDOW: document.getElementById('serviceWindow').innerHTML,
+    consentAsk: function(){},
+    consentSecond: 5,
+    onConfluence: function(){},
+    confluenceSecond: 2,
     outside: function(){
         var outsideWindow = false;
         if(serviceTime.WINDOW === 't'){
-            var startTime = new Date();
-            var dayNow = startTime.getDay();
-            var dateNow = startTime.getDate();
-            var timeNow = startTime.getTime();
+            var dayNow = serviceTime.begin.getDay();
+            var dateNow = serviceTime.begin.getDate();
+            var timeNow = serviceTime.begin.getTime();
             var endTime = new Date();
-            startTime.setDate(dateNow + (serviceTime.START[0] - dayNow));
-            startTime.setHours(serviceTime.START[1] - 1, 60 - serviceTime.PREP, 0, 0); // open window x minutes before actual start
+            serviceTime.begin.setDate(dateNow + (serviceTime.START[0] - dayNow));
+            serviceTime.begin.setHours(serviceTime.START[1] - 1, 60 - serviceTime.PREP, 0, 0); // open window x minutes before actual begin
+            var millisBegin = serviceTime.begin.getTime();
             endTime.setDate(dateNow + (serviceTime.END[0] - dayNow));
             endTime.setHours(serviceTime.END[1], 0, 0, 0);
-            if(startTime.getTime() > timeNow){                      // if start is in future
+            if(millisBegin > timeNow){                              // if begin is in future
                 var lastEndTime = endTime.getTime(endTime.getDate() - 7);
                 if (lastEndTime > timeNow){ outsideWindow = true; } // if last window ending is in past, outside of window
-            } else {                                                // if start time is in past
+            } else {                                                // if begin time is in past
                 if(endTime.getTime() < timeNow){                    // if this window ending has passed, outside of window
-                    startTime.setDate(startTime.getDate() + 7);     // set start date to next week
+                    serviceTime.begin.setDate(serviceTime.begin.getDate() + 7);     // set begin date to next week
                     outsideWindow = true;
                 }
             }
-            startTime.setHours(serviceTime.START[1], 0);             // set back to true start time
-            serviceTime.box.innerHTML = startTime.toLocaleString();  // display true start time
+            serviceTime.begin.setHours(serviceTime.START[1], 0);             // set back to true begin time
+            serviceTime.box.innerHTML = serviceTime.begin.toLocaleString();  // display true begin time
+            if(outsideWindow){
+                setTimeout(serviceTime.activate, millisBegin - timeNow);     // activate when window will reopen
+            } else {serviceTime.activate(timeNow);}                          // activate now given open window
+        } else {
+            serviceTime.countDown = DEBUG_TIME;
+            serviceTime.DEBUG = true;
         }
         return outsideWindow; // default case is to show within window
     },
     check: function(confirmation, onConfluence){
+        if(serviceTime.DEBUG){
+            setTimeout(function nextSecond(){
+                if(serviceTime.countDown){
+                    serviceTime.box.innerHTML = serviceTime.countDown;
+                    serviceTime.countDown--;
+                    if(serviceTime.countDown === 4){confirmation();}
+                    else if(serviceTime.countDown === 1){onConfluence();}
+                    serviceTime.check(confirmation, onConfluence);
+                } else {
+                    serviceTime.box.innerHTML = 0;
+                    serviceTime.countDown = DEBUG_TIME;
+                }
+            }, 1000);
+        }
+    },
+    activate: function(currentTime){
+        if(!currentTime){currentTime = new Date().getTime();}
+        var startTime = serviceTime.begin.getTime();
+        if(currentTime < startTime){ // this is the case where we are counting down but from what?
+            var diff = startTime - currentTime;
+            var firstTimeout = diff;
+            if(diff > 1000){
+                serviceTime.countDown = Math.floor(diff / 1000);
+                firstTimeout = diff % 1000;
+            }
+            if(serviceTime.countDown < serviceTime.consentSecond){     // time to consent has passed
+                serviceTime.consentAsk();
+                serviceTime.countDown = serviceTime.consentSecond - 1; // give time for someone to actually consent before confluence
+            }
+            setTimeout(serviceTime.downCount, firstTimeout);
+        } else {
+            // in this case we are just matching with anyone like a free for all
+        }
+    },
+    downCount: function(){
         setTimeout(function nextSecond(){
             if(serviceTime.countDown){
                 serviceTime.box.innerHTML = serviceTime.countDown;
                 serviceTime.countDown--;
-                if(serviceTime.countDown === 4){confirmation();}
-                else if(serviceTime.countDown === 1){onConfluence();}
+                if(serviceTime.countDown === serviceTime.consentSecond){serviceTime.consentAsk();}
+                else if(serviceTime.countDown === serviceTime.confluenceSecond){serviceTime.onConfluence();}
                 serviceTime.check(confirmation, onConfluence);
             } else {
                 serviceTime.box.innerHTML = 0;
-                serviceTime.countDown = DEBUG_TIME;
+                serviceTime.countDown = 0;
             }
         }, 1000);
     }
@@ -404,6 +453,8 @@ var app = {
         document.addEventListener('DOMContentLoaded', function(){       // wait till dom is loaded before manipulating it
             persistence.init(function onLocalRead(capible, oid, username){
                 if(capible){
+                    serviceTime.consentAsk = app.consent;
+                    serviceTime.onConfluence = dataPeer.checkIfEatingPie;
                     if(serviceTime.outside()){
                         app.setupButton.hidden = true;
                         app.setupInput.hidden = true;
@@ -448,22 +499,20 @@ var app = {
         app.discription.innerHTML = '';
         app.connectButton.hidden = true;
     },
-    rtcReady: function(username){
-        serviceTime.check(function confirmation(){
-            app.discription.innerHTML = 'Are you ready to chat?';
-            app.connectButton.innerHTML = 'Ready to talk';
-            app.connectButton.onclick = function oneClientReady(){
-                app.discription.innerHTML = 'Waiting for peer';
-                app.connectButton.hidden = true;
-                dataPeer.readySignal(function whenBothClientReady(){app.whenConnected(username);});
-            };
-            app.connectButton.hidden = false;
-        }, function figureDuds(){dataPeer.checkIfEatingPie(app.connectButton);});
+    consent: function(){
+        app.discription.innerHTML = 'Are you ready to chat?';
+        app.connectButton.innerHTML = 'Ready to talk';
+        app.connectButton.onclick = function oneClientReady(){
+            app.discription.innerHTML = 'Waiting for peer';
+            app.connectButton.hidden = true;
+            dataPeer.readySignal(app.whenConnected);
+        };
+        app.connectButton.hidden = false;
     },
-    whenConnected: function(username){
+    whenConnected: function(){
         media.switchAudio(true);
         ws.reduce();
-        app.discription.innerHTML = 'connected to ' + username;
+        app.discription.innerHTML = 'connected to ' + dataPeer.peerName;
         app.connectButton.onclick = app.disconnect;
         app.connectButton.innerHTML = 'Disconnect';
         app.connectButton.hidden = false;
@@ -479,4 +528,4 @@ var app = {
     }
 };
 
-app.init(); // start application
+app.init(); // begin application
