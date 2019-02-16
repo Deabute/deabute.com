@@ -349,10 +349,12 @@ var DEBUG_TIME = 6;
 var serviceTime = {
     START: [0, 13],
     END: [0, 14],
+    PREP: 10,    // minutes of time a client can connect early
     countDown: DEBUG_TIME,
     box: document.getElementById('timebox'),
     WINDOW: document.getElementById('serviceWindow').innerHTML,
-    next: function(){
+    outside: function(){
+        var outsideWindow = false;
         if(serviceTime.WINDOW === 't'){
             var startTime = new Date();
             var dayNow = startTime.getDay();
@@ -360,19 +362,22 @@ var serviceTime = {
             var timeNow = startTime.getTime();
             var endTime = new Date();
             startTime.setDate(dateNow + (serviceTime.START[0] - dayNow));
-            startTime.setHours(serviceTime.START[1], 0, 0, 0);
+            startTime.setHours(serviceTime.START[1] - 1, 60 - serviceTime.PREP, 0, 0); // open window x minutes before actual start
             endTime.setDate(dateNow + (serviceTime.END[0] - dayNow));
             endTime.setHours(serviceTime.END[1], 0, 0, 0);
-            if(startTime.getTime() > timeNow){                   // if start is in future
+            if(startTime.getTime() > timeNow){                      // if start is in future
                 var lastEndTime = endTime.getTime(endTime.getDate() - 7);
-                if (lastEndTime > timeNow){ return startTime; }  // if last window ending is in past, outside of window
-            } else {                                             // if start time is in past
-                if(endTime.getTime() < timeNow){                 // if this window ending has passed, outside of window
-                    startTime.setDate(startTime.getDate() + 7);  // set start date to next week
-                    return startTime;
+                if (lastEndTime > timeNow){ outsideWindow = true; } // if last window ending is in past, outside of window
+            } else {                                                // if start time is in past
+                if(endTime.getTime() < timeNow){                    // if this window ending has passed, outside of window
+                    startTime.setDate(startTime.getDate() + 7);     // set start date to next week
+                    outsideWindow = true;
                 }
             }
-        } return false; // default case is to show within window
+            startTime.setHours(serviceTime.START[1], 0);             // set back to true start time
+            serviceTime.box.innerHTML = startTime.toLocaleString();  // display true start time
+        }
+        return outsideWindow; // default case is to show within window
     },
     check: function(confirmation, onConfluence){
         setTimeout(function nextSecond(){
@@ -399,11 +404,10 @@ var app = {
         document.addEventListener('DOMContentLoaded', function(){       // wait till dom is loaded before manipulating it
             persistence.init(function onLocalRead(capible, oid, username){
                 if(capible){
-                    var nextServiceTime = serviceTime.next();
-                    if(nextServiceTime){
+                    if(serviceTime.outside()){
                         app.setupButton.hidden = true;
                         app.setupInput.hidden = true;
-                        app.discription.innerHTML = 'Next session starts ' + nextServiceTime.toLocaleString();
+                        app.discription.innerHTML = 'Please wait till our next scheduled matching to participate';
                     } else { // connect to socket server if service is running at current time
                         if(username){
                             app.setupButton.innerHTML = 'Allow microphone';
