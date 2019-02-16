@@ -347,8 +347,8 @@ var persistence = {
 
 var DEBUG_TIME = 6;
 var serviceTime = {
-    START: [5, 16],
-    END: [5, 22],
+    START: [0, 13],
+    END: [0, 14],
     countDown: DEBUG_TIME,
     box: document.getElementById('timebox'),
     WINDOW: document.getElementById('serviceWindow').innerHTML,
@@ -363,14 +363,16 @@ var serviceTime = {
             startTime.setHours(serviceTime.START[1], 0, 0, 0);
             endTime.setDate(dateNow + (serviceTime.END[0] - dayNow));
             endTime.setHours(serviceTime.END[1], 0, 0, 0);
-            if(startTime.getTime() < timeNow){
-                if (endTime.getTime() > timeNow){ return false; }
-                else { return startTime; }
+            if(startTime.getTime() > timeNow){                   // if start is in future
+                var lastEndTime = endTime.getTime(endTime.getDate() - 7);
+                if (lastEndTime > timeNow){ return startTime; }  // if last window ending is in past, outside of window
+            } else {                                             // if start time is in past
+                if(endTime.getTime() < timeNow){                 // if this window ending has passed, outside of window
+                    startTime.setDate(startTime.getDate() + 7);  // set start date to next week
+                    return startTime;
+                }
             }
-            var startDate = startTime.getDate();
-            startTime.setDate(startDate + 7);
-            return startTime;
-        } else { return false; }
+        } return false; // default case is to show within window
     },
     check: function(confirmation, onConfluence){
         setTimeout(function nextSecond(){
