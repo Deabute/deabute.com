@@ -36,8 +36,8 @@ var rtc = { // stun servers in config allow client to introspect a communication
         });                                                     // note answer is shown to user in onicecandidate event above once resolved
     },
     close: function(){ // returns peer's oid
-        ws.send({type: 'pause', oid: localStorage.oid});
         if(rtc.peer){  // clean up pre existing rtc connection if there
+            ws.send({type: 'pause', oid: localStorage.oid});
             rtc.peer.close();
             rtc.peer = null;
         }
@@ -58,14 +58,13 @@ var dataPeer = {
     talking: false,     // WE, humans are talking
     peerName: '',
     newChannel: function(event){
-        receiveChannel = event.channel;                          // recieve channel events handlers created on connection
-        receiveChannel.onerror = function onError(){};           // handling errors could be a good idea
-        receiveChannel.onmessage = dataPeer.incoming;
+        receiveChannel = event.channel;                      // recieve channel events handlers created on connection
+        receiveChannel.onerror = function onError(){};       // handling errors could be a good idea
+        receiveChannel.onmessage = dataPeer.incoming;        // handle events upon opening connection
         receiveChannel.onopen = function onOpen(){
             dataPeer.connected = true;
             dataPeer.send({type: 'connect', username: localStorage.username});
-        };    // handle events upon opening connection
-        // receiveChannel.onclose = function onClose(){rtc.close();};
+        };  // receiveChannel.onclose = function onClose(){rtc.close();};
     },
     incoming: function(event){                              // handle incoming rtc messages
         var req = {type: null};                             // request defualt
@@ -75,11 +74,11 @@ var dataPeer = {
             dataPeer.talking = false;                       // done talking
             app.disconnect();                               // needs to happend after friend id is passed to nps
         } else if(req.type === 'ready'){
-            dataPeer.whenReady(app.whenConnected);
+            dataPeer.whenReady();
         } else if(req.type === 'connect'){
             dataPeer.peerName = req.username;
-            if(dataPeer.clientReady){dataPeer.readySignal(app.whenConnected);}
-            else                    {serviceTime.check(app.consent, dataPeer.checkIfEatingPie);}
+            if(dataPeer.clientReady){dataPeer.readySignal(dataPeer.ready);}
+            // else                    {serviceTime.downCount();}
         }
     },
     disconnect: function(talking){
@@ -95,29 +94,29 @@ var dataPeer = {
             return true;
         } else { return false;}
     },
-    readySignal: function(onReady){
-        console.log('sending ready signal');
+    readySignal: function(alreadyTried){
         dataPeer.send({type:'ready', username: localStorage.username});
-        dataPeer.clientReady = true;
-        dataPeer.whenReady(onReady);
+        if(!alreadyTried){
+            dataPeer.clientReady = true;
+            dataPeer.whenReady();
+        }
     },
-    whenReady: function(onReady){
+    whenReady: function(){
         if(dataPeer.ready){
             dataPeer.talking = true;
             dataPeer.ready = false;           // "we" are ready
-            onReady();
+            media.switchAudio(true);
+            ws.reduce();
+            app.whenConnected();
         } else {dataPeer.ready = true;}
     },
-    checkIfEatingPie: function(){ // happens at confluence time
-        console.log('checking for pie eaters');
+    onConfluence: function(){ // happens at confluence time
         if(!dataPeer.talking){                 // given conversation is a dud
-            var peerID = rtc.close();
+            rtc.close();
             if(dataPeer.clientReady){
-                console.log('not eatting pie');
                 ws.send({type: 'unmatched', oid: localStorage.oid}); // let server know we can be rematched
                 app.waiting();                                       // show waiting for rematch
             } else {
-                console.log('eating pie');
                 ws.reduce();
                 app.connectButton = dataPeer.missedTheBoat;
             } // this client is eating pie or doing something other than paying attention
@@ -132,24 +131,20 @@ var dataPeer = {
 
 var ws = {
     active: false,
-    instance: null,    // placeholder for websocket object
-    connected: false,  // set to true when connected to server
+    instance: null,            // placeholder for websocket object
+    connected: false,          // set to true when connected to server
+    onConnection: null,        // default to waiting for connections to pool dialog
     server: document.getElementById('socketserver').innerHTML,
-    init: function(onConnection){
+    init: function(){
         ws.instance = new WebSocket(ws.server);
         ws.instance.onopen = function(event){
             ws.active = true;
-            window.addEventListener("beforeunload", function(event){
-                console.log('signing out');
-                event.returnValue = '';
-                ws.reduce();
-            });
             ws.connected = true;
             ws.instance.onmessage = ws.incoming;
             ws.send({type: 'connected', oid: localStorage.oid});
             ws.onclose = function onSocketClose(){ws.connected = false;};
             ws.onerror = function onSocketError(){console.log(error);};
-            onConnection();
+            ws.onConnection();
         };
     },
     reduce: function(){
@@ -174,12 +169,14 @@ var ws = {
             rtc.peer.addIceCandidate(req.candidate);
         } else if(req.type === 'makeOffer'){
             if(req.pool){pool.set(req.pool);}
-            app.connect();
+            rtc.init(rtc.createOffer);
+            prompt.caller = true; // defines who instigator is, to split labor
+            // app.connect();
         } else if(req.type === 'pool'){
             pool.increment(req.count);
         } else if(req.type === 'nomatch'){
             app.discription.innerHTML = 'no soup for you';
-            setTimeout(app.waiting, 2000);
+            app.timeouts[0] = setTimeout(app.waiting, 2000);
         }
         if(res.type){ws.send(res);}
     },
@@ -196,12 +193,10 @@ var pool = {
     display: document.getElementById('pool'),
     count: 0, // assume peer is counted in pool
     increment: function(amount){
-        console.log('changing amount by ' + amount);
         pool.count = pool.count + amount;
         pool.display.innerHTML = pool.count;
     },
     set: function(setAmount){
-        console.log('setting amount at ' + setAmount);
         pool.count = setAmount;
         pool.display.innerHTML = pool.count;
     }
@@ -333,7 +328,8 @@ var persistence = {
     init: function(onStorageLoad){
         if(localStorage){
             if(!localStorage.oid){localStorage.oid = persistence.createOid();}
-            onStorageLoad(true, localStorage.oid, localStorage.username);
+            if(!localStorage.username){localStorage.username = 'Anonymous';}
+            onStorageLoad(true);
         } else { onStorageLoad(false); }
 
     },
@@ -351,17 +347,14 @@ var DEBUG_TIME = 6;
 var serviceTime = {
     DEBUG: false,
     begin: new Date(),
-    START: [0, 13],
-    END: [0, 14],
-    PREP: 10,    // minutes of time a client can connect early
+    START: [1, 15, 22], // third argument is minute for prep starts, sessions always start on hour
+    END: [1, 17],
     countDown: 0,
     box: document.getElementById('timebox'),
     WINDOW: document.getElementById('serviceWindow').innerHTML,
-    consentAsk: function(){},
     consentSecond: 5,
-    onConfluence: function(){},
     confluenceSecond: 2,
-    outside: function(){
+    outside: function(username){
         var outsideWindow = false;
         if(serviceTime.WINDOW === 't'){
             var dayNow = serviceTime.begin.getDay();
@@ -369,7 +362,7 @@ var serviceTime = {
             var timeNow = serviceTime.begin.getTime();
             var endTime = new Date();
             serviceTime.begin.setDate(dateNow + (serviceTime.START[0] - dayNow));
-            serviceTime.begin.setHours(serviceTime.START[1] - 1, 60 - serviceTime.PREP, 0, 0); // open window x minutes before actual begin
+            serviceTime.begin.setHours(serviceTime.START[1] - 1, serviceTime.START[2], 0, 0); // open window x minutes before actual begin
             var millisBegin = serviceTime.begin.getTime();
             endTime.setDate(dateNow + (serviceTime.END[0] - dayNow));
             endTime.setHours(serviceTime.END[1], 0, 0, 0);
@@ -382,34 +375,22 @@ var serviceTime = {
                     outsideWindow = true;
                 }
             }
-            serviceTime.begin.setHours(serviceTime.START[1], 0);             // set back to true begin time
-            serviceTime.box.innerHTML = serviceTime.begin.toLocaleString();  // display true begin time
+            serviceTime.begin.setHours(serviceTime.START[1], 0);             // set back to true begin time, always on hour
             if(outsideWindow){
-                setTimeout(serviceTime.activate, millisBegin - timeNow);     // activate when window will reopen
-            } else {serviceTime.activate(timeNow);}                          // activate now given open window
+                serviceTime.box.innerHTML = serviceTime.begin.toLocaleString();  // display true begin time
+                app.timeouts[2] = setTimeout(serviceTime.activate, millisBegin - timeNow);     // activate when window will reopen
+            } else {
+                serviceTime.box.innerHTML = 'Currently matching users';  // display true begin time
+                serviceTime.activate(timeNow);
+            }                          // activate now given open window
         } else {
             serviceTime.countDown = DEBUG_TIME;
             serviceTime.DEBUG = true;
         }
         return outsideWindow; // default case is to show within window
     },
-    check: function(confirmation, onConfluence){
-        if(serviceTime.DEBUG){
-            setTimeout(function nextSecond(){
-                if(serviceTime.countDown){
-                    serviceTime.box.innerHTML = serviceTime.countDown;
-                    serviceTime.countDown--;
-                    if(serviceTime.countDown === 4){confirmation();}
-                    else if(serviceTime.countDown === 1){onConfluence();}
-                    serviceTime.check(confirmation, onConfluence);
-                } else {
-                    serviceTime.box.innerHTML = 0;
-                    serviceTime.countDown = DEBUG_TIME;
-                }
-            }, 1000);
-        }
-    },
     activate: function(currentTime){
+        app.proposition(); // ask about name and microphone to start getting set up
         if(!currentTime){currentTime = new Date().getTime();}
         var startTime = serviceTime.begin.getTime();
         if(currentTime < startTime){ // this is the case where we are counting down but from what?
@@ -423,22 +404,22 @@ var serviceTime = {
                 serviceTime.consentAsk();
                 serviceTime.countDown = serviceTime.consentSecond - 1; // give time for someone to actually consent before confluence
             }
-            setTimeout(serviceTime.downCount, firstTimeout);
+            app.timeouts[1] = setTimeout(serviceTime.downCount, firstTimeout);
         } else {
             // in this case we are just matching with anyone like a free for all
         }
     },
     downCount: function(){
-        setTimeout(function nextSecond(){
+        app.timeouts[1] = setTimeout(function nextSecond(){
             if(serviceTime.countDown){
                 serviceTime.box.innerHTML = serviceTime.countDown;
                 serviceTime.countDown--;
-                if(serviceTime.countDown === serviceTime.consentSecond){serviceTime.consentAsk();}
-                else if(serviceTime.countDown === serviceTime.confluenceSecond){serviceTime.onConfluence();}
-                serviceTime.check(confirmation, onConfluence);
+                if(serviceTime.countDown === serviceTime.consentSecond){app.consent();}
+                else if(serviceTime.countDown === serviceTime.confluenceSecond){dataPeer.onConfluence();}
+                serviceTime.downCount();
             } else {
                 serviceTime.box.innerHTML = 0;
-                serviceTime.countDown = 0;
+                serviceTime.countDown = DEBUG_TIME;
             }
         }, 1000);
     }
@@ -449,28 +430,38 @@ var app = {
     setupButton: document.getElementById('setupButton'),
     connectButton: document.getElementById('connectButton'),
     discription: document.getElementById('discription'),
+    timeouts: [null, null, null],
     init: function(){
         document.addEventListener('DOMContentLoaded', function(){       // wait till dom is loaded before manipulating it
-            persistence.init(function onLocalRead(capible, oid, username){
+            persistence.init(function onLocalRead(capible){
                 if(capible){
-                    serviceTime.consentAsk = app.consent;
-                    serviceTime.onConfluence = dataPeer.checkIfEatingPie;
+                    window.addEventListener("beforeunload", function(event){
+                        event.returnValue = '';
+                        if(ws.connected){
+                            rtc.close();
+                            ws.reduce();
+                        }
+                        app.timeouts.forEach(function each(timeout){if(timeout){clearTimeout(timeout);}});
+                    });
                     if(serviceTime.outside()){
+                        ws.onConnection = app.waiting;
                         app.setupButton.hidden = true;
                         app.setupInput.hidden = true;
                         app.discription.innerHTML = 'Please wait till our next scheduled matching to participate';
-                    } else { // connect to socket server if service is running at current time
-                        if(username){
-                            app.setupButton.innerHTML = 'Allow microphone';
-                            app.discription.innerHTML = 'Welcome back ' + username;
-                            app.setupInput.value = username;
-                        } else {
-                            app.setupButton.innerHTML = 'Enter name, allow microphone';
-                        }
+                    } else {
+                        ws.onConnection = app.consent;
+                        app.proposition();
                     }
                 } else {app.discription.innerHTML = 'Incompatible browser';}
             });
         });
+    },
+    proposition: function(){
+        if(localStorage.username !== 'Anonymous'){
+            app.setupButton.innerHTML = 'Allow microphone';
+            app.discription.innerHTML = 'Welcome back ' + localStorage.username;
+            app.setupInput.value = localStorage.username;
+        } else { app.setupButton.innerHTML = 'Enter name, allow microphone'; }
     },
     issue: function(issue){
         app.discription.innerHTML = 'Sorry there was an issue: ' + issue +
@@ -483,10 +474,9 @@ var app = {
         localStorage.username = app.setupInput.value;
         app.setupInput.hidden = true;
         media.init(function onMic(issue, mediaStream){
-            if(issue){ app.issue(issue);}
-            else if (mediaStream){
-                ws.init(function(){app.waiting(true);});
-            } else {app.issue('No media stream present');}
+            if(issue)            {app.issue(issue);}
+            else if (mediaStream){ws.init();}
+            else                 {app.issue('No media stream present');}
         });
     },
     disconnect: function(){
@@ -505,13 +495,11 @@ var app = {
         app.connectButton.onclick = function oneClientReady(){
             app.discription.innerHTML = 'Waiting for peer';
             app.connectButton.hidden = true;
-            dataPeer.readySignal(app.whenConnected);
+            dataPeer.readySignal();
         };
         app.connectButton.hidden = false;
     },
     whenConnected: function(){
-        media.switchAudio(true);
-        ws.reduce();
         app.discription.innerHTML = 'connected to ' + dataPeer.peerName;
         app.connectButton.onclick = app.disconnect;
         app.connectButton.innerHTML = 'Disconnect';
@@ -522,7 +510,7 @@ var app = {
         app.connectButton.hidden = true;
     },
     connect: function(){
-        rtc.init(function(){rtc.createOffer();});
+        rtc.init(rtc.createOffer);
         prompt.caller = true; // defines who instigator is, to split labor
         app.connectButton.hidden = true;
     }
