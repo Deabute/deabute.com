@@ -76,6 +76,7 @@ var dataPeer = {
         } else if(req.type === 'ready'){
             dataPeer.whenReady();
         } else if(req.type === 'connect'){
+            console.log('connected to : ' + req.username);
             dataPeer.peerName = req.username;
             if(dataPeer.clientReady){dataPeer.readySignal(dataPeer.ready);}
             // else                    {serviceTime.downCount();}
@@ -347,12 +348,12 @@ var DEBUG_TIME = 6;
 var serviceTime = {
     DEBUG: false,
     begin: new Date(),
-    START: [1, 15, 22], // third argument is minute for prep starts, sessions always start on hour
-    END: [1, 17],
+    START: [1, 18, 1], // third argument is minute for prep starts, sessions always start on hour
+    END: [1, 19],
     countDown: 0,
     box: document.getElementById('timebox'),
     WINDOW: document.getElementById('serviceWindow').innerHTML,
-    consentSecond: 5,
+    consentSecond: 30,
     confluenceSecond: 2,
     outside: function(username){
         var outsideWindow = false;
@@ -376,24 +377,25 @@ var serviceTime = {
                 }
             }
             serviceTime.begin.setHours(serviceTime.START[1], 0);             // set back to true begin time, always on hour
+            serviceTime.box.innerHTML = serviceTime.begin.toLocaleString();  // display true begin time
             if(outsideWindow){
-                serviceTime.box.innerHTML = serviceTime.begin.toLocaleString();  // display true begin time
-                app.timeouts[2] = setTimeout(serviceTime.activate, millisBegin - timeNow);     // activate when window will reopen
-            } else {
-                serviceTime.box.innerHTML = 'Currently matching users';  // display true begin time
-                serviceTime.activate(timeNow);
-            }                          // activate now given open window
+                app.timeouts[2] = setTimeout(serviceTime.open, millisBegin - timeNow); // open in upcoming window
+            } else {serviceTime.open();}                                               // open now, its time
         } else {
             serviceTime.countDown = DEBUG_TIME;
             serviceTime.DEBUG = true;
         }
         return outsideWindow; // default case is to show within window
     },
-    activate: function(currentTime){
+    open: function(){
         app.proposition(); // ask about name and microphone to start getting set up
-        if(!currentTime){currentTime = new Date().getTime();}
+        ws.onConnection = serviceTime.onWSConnect;
+    },
+    onWSConnect: function(){
+        app.waiting();
+        currentTime = new Date().getTime();
         var startTime = serviceTime.begin.getTime();
-        if(currentTime < startTime){ // this is the case where we are counting down but from what?
+        if(currentTime < startTime){ // this is the case where we are counting down
             var diff = startTime - currentTime;
             var firstTimeout = diff;
             if(diff > 1000){
@@ -401,13 +403,11 @@ var serviceTime = {
                 firstTimeout = diff % 1000;
             }
             if(serviceTime.countDown < serviceTime.consentSecond){     // time to consent has passed
-                serviceTime.consentAsk();
+                app.consent();
                 serviceTime.countDown = serviceTime.consentSecond - 1; // give time for someone to actually consent before confluence
             }
             app.timeouts[1] = setTimeout(serviceTime.downCount, firstTimeout);
-        } else {
-            // in this case we are just matching with anyone like a free for all
-        }
+        } else {serviceTime.box.innerHTML = 'Currently matching users';}
     },
     downCount: function(){
         app.timeouts[1] = setTimeout(function nextSecond(){
@@ -418,6 +418,7 @@ var serviceTime = {
                 else if(serviceTime.countDown === serviceTime.confluenceSecond){dataPeer.onConfluence();}
                 serviceTime.downCount();
             } else {
+                serviceTime.box.innerHTML = 'Currently matching users';  // display true begin time
                 serviceTime.box.innerHTML = 0;
                 serviceTime.countDown = DEBUG_TIME;
             }
@@ -437,20 +438,13 @@ var app = {
                 if(capible){
                     window.addEventListener("beforeunload", function(event){
                         event.returnValue = '';
-                        if(ws.connected){
-                            rtc.close();
-                            ws.reduce();
-                        }
+                        if(ws.connected){rtc.close();ws.reduce();}
                         app.timeouts.forEach(function each(timeout){if(timeout){clearTimeout(timeout);}});
                     });
                     if(serviceTime.outside()){
-                        ws.onConnection = app.waiting;
                         app.setupButton.hidden = true;
                         app.setupInput.hidden = true;
                         app.discription.innerHTML = 'Please wait till our next scheduled matching to participate';
-                    } else {
-                        ws.onConnection = app.consent;
-                        app.proposition();
                     }
                 } else {app.discription.innerHTML = 'Incompatible browser';}
             });
@@ -506,7 +500,7 @@ var app = {
         app.connectButton.hidden = false;
     },
     waiting: function(){
-        app.discription.innerHTML = 'Waiting for connection pool to grow';
+        app.discription.innerHTML = 'Waiting for session to start';
         app.connectButton.hidden = true;
     },
     connect: function(){
