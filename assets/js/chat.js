@@ -33,11 +33,13 @@ var rtc = { // stun servers in config allow client to introspect a communication
         });
     },
     giveAnswer: function(sdp, oidFromOffer){
+        console.log('giving answer');
         rtc.peer.setRemoteDescription(sdp);
         rtc.connectionId = oidFromOffer;
         rtc.peer.createAnswer().then(function onAnswer(answer){ // create answer to remote peer that offered
             return rtc.peer.setLocalDescription(answer);        // set that offer as our local discripion
         }).then(function onOfferSetDesc(){
+            console.log('sending answer');
             ws.send({type: 'answer', oid: localStorage.oid, sdp: rtc.peer.localDescription, peerId: oidFromOffer}); // send offer to friend
         });                                                     // note answer is shown to user in onicecandidate event above once resolved
     },
@@ -176,6 +178,7 @@ var ws = {
         catch(error){}                   // if error we don't care there is a default object
         var res = {type: null};          // response
         if(req.type === 'offer'){
+            console.log('getting offer');
             rtc.init(function onInit(){rtc.giveAnswer(req.sdp, req.id);});
         } else if(req.type === 'answer'){
             rtc.connectionId = req.id;
@@ -362,45 +365,54 @@ var DEBUG_TIME = 6;
 var serviceTime = {
     DEBUG: false,
     begin: new Date(),
-    START: [2, 12, 1], // third argument is minute for prep starts, sessions always start on hour
+    START: [2, 14, 1], // third argument is minute for prep starts, sessions always start on hour
     END: [2, 19],
     countDown: 0,
     box: document.getElementById('timebox'),
     WINDOW: document.getElementById('serviceWindow').innerHTML,
-    consentSecond: 620,
-    confluenceSecond: 600,
+    consentSecond: 3050,
+    confluenceSecond: 3000,
+    test: function(){
+        if(serviceTime.WINDOW === 't'){
+            var date = new Date();
+            var hour = date.getHours();
+            var minute = date.getMinutes();
+            var day = date.getDay();
+            serviceTime.START = [day, hour + 1, 1];
+            serviceTime.END = [day, hour + 2];
+            var wouldBeCurrentCountDown = 3600 - minute * 60;
+            serviceTime.consentSecond = wouldBeCurrentCountDown - 30;
+            console.log(serviceTime.consentSecond);
+            serviceTime.confluenceSecond = serviceTime.consentSecond - 10;
+        }
+    },
     outside: function(username){
         var outsideWindow = false;
-        if(serviceTime.WINDOW === 't'){
-            var dayNow = serviceTime.begin.getDay();
-            var dateNow = serviceTime.begin.getDate();
-            var timeNow = serviceTime.begin.getTime();
-            var endTime = new Date();
-            serviceTime.begin.setDate(dateNow + (serviceTime.START[0] - dayNow));
-            serviceTime.begin.setHours(serviceTime.START[1] - 1, serviceTime.START[2], 0, 0); // open window x minutes before actual begin
-            var millisBegin = serviceTime.begin.getTime();
-            endTime.setDate(dateNow + (serviceTime.END[0] - dayNow));
-            endTime.setHours(serviceTime.END[1], 0, 0, 0);
-            if(millisBegin > timeNow){                              // if begin is in future
-                var lastEndTime = endTime.getTime(endTime.getDate() - 7);
-                if (lastEndTime > timeNow){ outsideWindow = true; } // if last window ending is in past, outside of window
-            } else {                                                // if begin time is in past
-                if(endTime.getTime() < timeNow){                    // if this window ending has passed, outside of window
-                    serviceTime.begin.setDate(serviceTime.begin.getDate() + 7);  // set begin date to next week
-                    millisBegin = serviceTime.begin.getTime();                   // reflect millis begining in future
-                    outsideWindow = true;
-                }
+        var dayNow = serviceTime.begin.getDay();
+        var dateNow = serviceTime.begin.getDate();
+        var timeNow = serviceTime.begin.getTime();
+        var endTime = new Date();
+        serviceTime.begin.setDate(dateNow + (serviceTime.START[0] - dayNow));
+        serviceTime.begin.setHours(serviceTime.START[1] - 1, serviceTime.START[2], 0, 0); // open window x minutes before actual begin
+        var millisBegin = serviceTime.begin.getTime();
+        endTime.setDate(dateNow + (serviceTime.END[0] - dayNow));
+        endTime.setHours(serviceTime.END[1], 0, 0, 0);
+        if(millisBegin > timeNow){                              // if begin is in future
+            var lastEndTime = endTime.getTime(endTime.getDate() - 7);
+            if (lastEndTime > timeNow){ outsideWindow = true; } // if last window ending is in past, outside of window
+        } else {                                                // if begin time is in past
+            if(endTime.getTime() < timeNow){                    // if this window ending has passed, outside of window
+                serviceTime.begin.setDate(serviceTime.begin.getDate() + 7);  // set begin date to next week
+                millisBegin = serviceTime.begin.getTime();                   // reflect millis begining in future
+                outsideWindow = true;
             }
-            serviceTime.begin.setHours(serviceTime.START[1], 0);             // set back to true begin time, always on hour
-            serviceTime.box.innerHTML = serviceTime.begin.toLocaleString();  // display true begin time
-            if(outsideWindow){
-                app.outsideService();
-                app.timeouts[OUTSIDEWINDOW] = setTimeout(serviceTime.open, millisBegin - timeNow); // open in upcoming window
-            } else {serviceTime.open();}                                               // open now, its time
-        } else {
-            serviceTime.countDown = DEBUG_TIME;
-            serviceTime.DEBUG = true;
         }
+        serviceTime.begin.setHours(serviceTime.START[1], 0);             // set back to true begin time, always on hour
+        serviceTime.box.innerHTML = serviceTime.begin.toLocaleString();  // display true begin time
+        if(outsideWindow){
+            app.outsideService();
+            app.timeouts[OUTSIDEWINDOW] = setTimeout(serviceTime.open, millisBegin - timeNow); // open in upcoming window
+        } else {serviceTime.open();}                                               // open now, its time
     },
     open: function(){
         app.proposition(); // ask about name and microphone to start getting set up
@@ -418,6 +430,7 @@ var serviceTime = {
                 firstTimeout = diff % 1000;
             }
             if(serviceTime.countDown < serviceTime.consentSecond){     // time to consent has passed
+                console.log('called after actual');
                 app.consent();
                 serviceTime.countDown = serviceTime.consentSecond - 1; // give time for someone to actually consent before confluence
             }
@@ -457,6 +470,7 @@ var app = {
                         if(ws.connected){rtc.close();ws.reduce();}
                         app.timeouts.forEach(function each(timeout){if(timeout){clearTimeout(timeout);}});
                     });
+                    serviceTime.test();
                     serviceTime.outside();
                 } else {app.discription.innerHTML = 'Incompatible browser';}
             });
