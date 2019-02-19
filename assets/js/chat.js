@@ -1,6 +1,12 @@
 // rtctest.js ~ copyright 2019 Paul Beaudet ~ MIT License
 // rtcSignal version - 1.0.21
 // This test requires at least two browser windows, to open a data connection between two peers
+// Timeout index
+var NOMATCH = 0;
+var COUNTDOWN = 1;
+var OUTSIDEWINDOW = 2;
+var MISSEDBOAT = 3;
+
 var rtc = { // stun servers in config allow client to introspect a communication path to offer a remote peer
     config: {'iceServers': [ {'urls': 'stun:stun.stunprotocol.org:3478'}, {'urls': 'stun:stun.l.google.com:19302'} ]},
     peer: null,                                                 // placeholder for parent webRTC object instance
@@ -109,6 +115,7 @@ var dataPeer = {
             dataPeer.ready = false;           // "we" are ready
             media.switchAudio(true);
             ws.reduce();
+            if(app.timeouts[MISSEDBOAT]){clearTimeout(app.timeouts[3]);}
             app.whenConnected();
         } else {dataPeer.ready = true;}
     },
@@ -120,14 +127,18 @@ var dataPeer = {
                 app.waiting();                                       // show waiting for rematch
             } else {
                 ws.reduce();
-                console.log('assigning missed the boat to connect button');
                 app.connectButton.onclick = dataPeer.missedTheBoat;
             } // this client is eating pie or doing something other than paying attention
         }
     },
     missedTheBoat: function(){
         console.log('calling missed boat');
-        if(pool.count){dataPeer.clientReady = true;}  // "I" am finally ready, if others are ready
+        dataPeer.clientReady = true;
+        app.timeouts[MISSEDBOAT] = setTimeout(function noLongerReady(){
+            app.timeouts[3] = null;
+            dataPeer.clientReady = false;
+            app.consent();
+        }, 15000);
         ws.repool();                                  // let server know we can be rematched
         app.waiting();                                // show waiting for rematch
     }
@@ -180,7 +191,7 @@ var ws = {
             pool.increment(req.count);
         } else if(req.type === 'nomatch'){
             app.discription.innerHTML = 'no soup for you';
-            app.timeouts[0] = setTimeout(app.waiting, 2000);
+            app.timeouts[NOMATCH] = setTimeout(app.waiting, 4000);
         }
         if(res.type){ws.send(res);}
     },
@@ -356,8 +367,8 @@ var serviceTime = {
     countDown: 0,
     box: document.getElementById('timebox'),
     WINDOW: document.getElementById('serviceWindow').innerHTML,
-    consentSecond: 2700,
-    confluenceSecond: 2690,
+    consentSecond: 620,
+    confluenceSecond: 600,
     outside: function(username){
         var outsideWindow = false;
         if(serviceTime.WINDOW === 't'){
@@ -384,7 +395,7 @@ var serviceTime = {
             serviceTime.box.innerHTML = serviceTime.begin.toLocaleString();  // display true begin time
             if(outsideWindow){
                 app.outsideService();
-                app.timeouts[2] = setTimeout(serviceTime.open, millisBegin - timeNow); // open in upcoming window
+                app.timeouts[OUTSIDEWINDOW] = setTimeout(serviceTime.open, millisBegin - timeNow); // open in upcoming window
             } else {serviceTime.open();}                                               // open now, its time
         } else {
             serviceTime.countDown = DEBUG_TIME;
@@ -410,11 +421,11 @@ var serviceTime = {
                 app.consent();
                 serviceTime.countDown = serviceTime.consentSecond - 1; // give time for someone to actually consent before confluence
             }
-            app.timeouts[1] = setTimeout(serviceTime.downCount, firstTimeout);
+            app.timeouts[COUNTDOWN] = setTimeout(serviceTime.downCount, firstTimeout);
         } else {serviceTime.box.innerHTML = 'Currently matching users';}
     },
     downCount: function(){
-        app.timeouts[1] = setTimeout(function nextSecond(){
+        app.timeouts[COUNTDOWN] = setTimeout(function nextSecond(){
             if(serviceTime.countDown){
                 serviceTime.box.innerHTML = serviceTime.countDown;
                 serviceTime.countDown--;
@@ -424,7 +435,8 @@ var serviceTime = {
             } else {
                 serviceTime.box.innerHTML = 'Currently matching users';  // display true begin time
                 serviceTime.box.innerHTML = 0;
-                serviceTime.countDown = DEBUG_TIME;
+                serviceTime.countDown = 0;
+                // TODO setTimeout for next window
             }
         }, 1000);
     }
@@ -435,7 +447,7 @@ var app = {
     setupButton: document.getElementById('setupButton'),
     connectButton: document.getElementById('connectButton'),
     discription: document.getElementById('discription'),
-    timeouts: [null, null, null],
+    timeouts: [null, null, null, null],
     init: function(){
         document.addEventListener('DOMContentLoaded', function(){       // wait till dom is loaded before manipulating it
             persistence.init(function onLocalRead(capible){
