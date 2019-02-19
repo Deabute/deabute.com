@@ -372,22 +372,25 @@ var serviceTime = {
                 if (lastEndTime > timeNow){ outsideWindow = true; } // if last window ending is in past, outside of window
             } else {                                                // if begin time is in past
                 if(endTime.getTime() < timeNow){                    // if this window ending has passed, outside of window
-                    serviceTime.begin.setDate(serviceTime.begin.getDate() + 7);     // set begin date to next week
+                    console.log('hello');
+                    serviceTime.begin.setDate(serviceTime.begin.getDate() + 7);  // set begin date to next week
+                    millisBegin = serviceTime.begin.getTime();                   // reflect millis begining in future
                     outsideWindow = true;
                 }
             }
             serviceTime.begin.setHours(serviceTime.START[1], 0);             // set back to true begin time, always on hour
             serviceTime.box.innerHTML = serviceTime.begin.toLocaleString();  // display true begin time
             if(outsideWindow){
+                app.outsideService();
                 app.timeouts[2] = setTimeout(serviceTime.open, millisBegin - timeNow); // open in upcoming window
             } else {serviceTime.open();}                                               // open now, its time
         } else {
             serviceTime.countDown = DEBUG_TIME;
             serviceTime.DEBUG = true;
         }
-        return outsideWindow; // default case is to show within window
     },
     open: function(){
+        console.log('running open');
         app.proposition(); // ask about name and microphone to start getting set up
         ws.onConnection = serviceTime.onWSConnect;
     },
@@ -441,14 +444,15 @@ var app = {
                         if(ws.connected){rtc.close();ws.reduce();}
                         app.timeouts.forEach(function each(timeout){if(timeout){clearTimeout(timeout);}});
                     });
-                    if(serviceTime.outside()){
-                        app.setupButton.hidden = true;
-                        app.setupInput.hidden = true;
-                        app.discription.innerHTML = 'Please wait till our next scheduled matching to participate';
-                    }
+                    serviceTime.outside();
                 } else {app.discription.innerHTML = 'Incompatible browser';}
             });
         });
+    },
+    outsideService: function(){
+        app.setupButton.hidden = true;
+        app.setupInput.hidden = true;
+        app.discription.innerHTML = 'Please wait till our next scheduled matching to participate';
     },
     proposition: function(){
         if(localStorage.username !== 'Anonymous'){
