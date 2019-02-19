@@ -96,7 +96,8 @@ var dataPeer = {
         } else { return false;}
     },
     readySignal: function(alreadyTried){
-        dataPeer.send({type:'ready', username: localStorage.username});
+        if(dataPeer.peerName){dataPeer.send({type:'ready', username: localStorage.username});}
+        else {app.waiting();}
         if(!alreadyTried){
             dataPeer.clientReady = true;
             dataPeer.whenReady();
@@ -119,11 +120,13 @@ var dataPeer = {
                 app.waiting();                                       // show waiting for rematch
             } else {
                 ws.reduce();
-                app.connectButton = dataPeer.missedTheBoat;
+                console.log('assigning missed the boat to connect button');
+                app.connectButton.onclick = dataPeer.missedTheBoat;
             } // this client is eating pie or doing something other than paying attention
         }
     },
     missedTheBoat: function(){
+        console.log('calling missed boat');
         if(pool.count){dataPeer.clientReady = true;}  // "I" am finally ready, if others are ready
         ws.repool();                                  // let server know we can be rematched
         app.waiting();                                // show waiting for rematch
@@ -348,13 +351,13 @@ var DEBUG_TIME = 6;
 var serviceTime = {
     DEBUG: false,
     begin: new Date(),
-    START: [1, 18, 1], // third argument is minute for prep starts, sessions always start on hour
-    END: [1, 19],
+    START: [2, 12, 1], // third argument is minute for prep starts, sessions always start on hour
+    END: [2, 19],
     countDown: 0,
     box: document.getElementById('timebox'),
     WINDOW: document.getElementById('serviceWindow').innerHTML,
-    consentSecond: 30,
-    confluenceSecond: 2,
+    consentSecond: 2700,
+    confluenceSecond: 2690,
     outside: function(username){
         var outsideWindow = false;
         if(serviceTime.WINDOW === 't'){
@@ -372,7 +375,6 @@ var serviceTime = {
                 if (lastEndTime > timeNow){ outsideWindow = true; } // if last window ending is in past, outside of window
             } else {                                                // if begin time is in past
                 if(endTime.getTime() < timeNow){                    // if this window ending has passed, outside of window
-                    console.log('hello');
                     serviceTime.begin.setDate(serviceTime.begin.getDate() + 7);  // set begin date to next week
                     millisBegin = serviceTime.begin.getTime();                   // reflect millis begining in future
                     outsideWindow = true;
@@ -390,7 +392,6 @@ var serviceTime = {
         }
     },
     open: function(){
-        console.log('running open');
         app.proposition(); // ask about name and microphone to start getting set up
         ws.onConnection = serviceTime.onWSConnect;
     },
@@ -488,6 +489,7 @@ var app = {
         app.connectButton.hidden = true;
     },
     consent: function(){
+        console.log('calling app consent');
         app.discription.innerHTML = 'Are you ready to chat?';
         app.connectButton.innerHTML = 'Ready to talk';
         app.connectButton.onclick = function oneClientReady(){
@@ -498,12 +500,14 @@ var app = {
         app.connectButton.hidden = false;
     },
     whenConnected: function(){
+        console.log('calling when connected');
         app.discription.innerHTML = 'connected to ' + dataPeer.peerName;
         app.connectButton.onclick = app.disconnect;
         app.connectButton.innerHTML = 'Disconnect';
         app.connectButton.hidden = false;
     },
     waiting: function(){
+        console.log('calling waiting');
         app.discription.innerHTML = 'Waiting for session to start';
         app.connectButton.hidden = true;
     },
