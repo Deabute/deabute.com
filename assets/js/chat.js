@@ -33,13 +33,11 @@ var rtc = { // stun servers in config allow client to introspect a communication
         });
     },
     giveAnswer: function(sdp, oidFromOffer){
-        console.log('giving answer');
         rtc.peer.setRemoteDescription(sdp);
         rtc.connectionId = oidFromOffer;
         rtc.peer.createAnswer().then(function onAnswer(answer){ // create answer to remote peer that offered
             return rtc.peer.setLocalDescription(answer);        // set that offer as our local discripion
         }).then(function onOfferSetDesc(){
-            console.log('sending answer');
             ws.send({type: 'answer', oid: localStorage.oid, sdp: rtc.peer.localDescription, peerId: oidFromOffer}); // send offer to friend
         });                                                     // note answer is shown to user in onicecandidate event above once resolved
     },
@@ -84,7 +82,6 @@ var dataPeer = {
         } else if(req.type === 'ready'){
             dataPeer.whenReady();
         } else if(req.type === 'connect'){
-            console.log('connected to : ' + req.username);
             dataPeer.peerName = req.username;
             if(dataPeer.clientReady){dataPeer.readySignal(dataPeer.ready);}
             // else                    {serviceTime.downCount();}
@@ -134,7 +131,6 @@ var dataPeer = {
         }
     },
     missedTheBoat: function(){
-        console.log('calling missed boat');
         dataPeer.clientReady = true;
         app.timeouts[MISSEDBOAT] = setTimeout(function noLongerReady(){
             app.timeouts[3] = null;
@@ -178,7 +174,6 @@ var ws = {
         catch(error){}                   // if error we don't care there is a default object
         var res = {type: null};          // response
         if(req.type === 'offer'){
-            console.log('getting offer');
             rtc.init(function onInit(){rtc.giveAnswer(req.sdp, req.id);});
         } else if(req.type === 'answer'){
             rtc.connectionId = req.id;
@@ -438,9 +433,7 @@ var serviceTime = {
                 serviceTime.countDown = Math.floor(diff / 1000);
                 firstTimeout = diff % 1000;
             }
-            console.log(serviceTime.countDown + ' <- countdown : consent -> ' + serviceTime.consentSecond);
             if(serviceTime.countDown < serviceTime.consentSecond){     // time to consent has passed
-                console.log('called after actual');
                 app.consent();
                 serviceTime.countDown = serviceTime.consentSecond - 1; // give time for someone to actually consent before confluence
             }
@@ -526,7 +519,6 @@ var app = {
         app.connectButton.hidden = true;
     },
     consent: function(){
-        console.log('calling app consent');
         app.discription.innerHTML = 'Are you ready to chat?';
         app.connectButton.innerHTML = 'Ready to talk';
         app.connectButton.onclick = function oneClientReady(){
@@ -537,14 +529,12 @@ var app = {
         app.connectButton.hidden = false;
     },
     whenConnected: function(){
-        console.log('calling when connected');
         app.discription.innerHTML = 'connected to ' + dataPeer.peerName;
         app.connectButton.onclick = app.disconnect;
         app.connectButton.innerHTML = 'Disconnect';
         app.connectButton.hidden = false;
     },
     waiting: function(){
-        console.log('calling waiting');
         app.discription.innerHTML = 'Waiting for session to start';
         app.connectButton.hidden = true;
     },
