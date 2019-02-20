@@ -388,7 +388,6 @@ var serviceTime = {
             var secondsAfter = minute * 60;
             var wouldBeCurrentCountDown = 3600 - secondsAfter;
             serviceTime.consentSecond = wouldBeCurrentCountDown - 30;
-            console.log(serviceTime.consentSecond);
             serviceTime.confluenceSecond = serviceTime.consentSecond - 10;
         }
     },
@@ -518,7 +517,8 @@ var app = {
         var peerId = dataPeer.disconnect();
         prompt.closingQuestion(peerId, function(){ // closes rtc connection, order important
             ws.repool();
-            app.waiting();
+            // app.waiting();
+            app.consent();
         });
         app.discription.innerHTML = '';
         app.connectButton.hidden = true;
