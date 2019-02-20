@@ -376,17 +376,24 @@ var serviceTime = {
         if(serviceTime.WINDOW === 't'){
             var date = new Date();
             var hour = date.getHours();
-            var minute = date.getMinutes();
             var day = date.getDay();
             serviceTime.START = [day, hour + 1, 1];
             serviceTime.END = [day, hour + 2];
-            var wouldBeCurrentCountDown = 3600 - minute * 60;
+        }
+    },
+    testOnConnect: function(){
+        if(serviceTime.WINDOW === 't'){
+            var date = new Date();
+            var minute = date.getMinutes();
+            var secondsAfter = minute * 60;
+            var wouldBeCurrentCountDown = 3600 - secondsAfter;
             serviceTime.consentSecond = wouldBeCurrentCountDown - 30;
             console.log(serviceTime.consentSecond);
             serviceTime.confluenceSecond = serviceTime.consentSecond - 10;
         }
     },
     outside: function(username){
+        serviceTime.test();
         var outsideWindow = false;
         var dayNow = serviceTime.begin.getDay();
         var dateNow = serviceTime.begin.getDate();
@@ -415,10 +422,12 @@ var serviceTime = {
         } else {serviceTime.open();}                                               // open now, its time
     },
     open: function(){
+        serviceTime.test();
         app.proposition(); // ask about name and microphone to start getting set up
         ws.onConnection = serviceTime.onWSConnect;
     },
     onWSConnect: function(){
+        serviceTime.testOnConnect();
         app.waiting();
         currentTime = new Date().getTime();
         var startTime = serviceTime.begin.getTime();
@@ -429,6 +438,7 @@ var serviceTime = {
                 serviceTime.countDown = Math.floor(diff / 1000);
                 firstTimeout = diff % 1000;
             }
+            console.log(serviceTime.countDown + ' <- countdown : consent -> ' + serviceTime.consentSecond);
             if(serviceTime.countDown < serviceTime.consentSecond){     // time to consent has passed
                 console.log('called after actual');
                 app.consent();
@@ -470,7 +480,6 @@ var app = {
                         if(ws.connected){rtc.close();ws.reduce();}
                         app.timeouts.forEach(function each(timeout){if(timeout){clearTimeout(timeout);}});
                     });
-                    serviceTime.test();
                     serviceTime.outside();
                 } else {app.discription.innerHTML = 'Incompatible browser';}
             });
