@@ -385,9 +385,10 @@ var serviceTime = {
         if(serviceTime.WINDOW === 't'){
             var date = new Date();
             var minute = date.getMinutes();
-            var secondsAfter = minute * 60;
+            var seconds = date.getSeconds();
+            var secondsAfter = minute * 60 + seconds;
             var wouldBeCurrentCountDown = 3600 - secondsAfter;
-            serviceTime.consentSecond = wouldBeCurrentCountDown - 40;
+            serviceTime.consentSecond = wouldBeCurrentCountDown - 15;
             serviceTime.confluenceSecond = serviceTime.consentSecond - 10;
         }
     },
