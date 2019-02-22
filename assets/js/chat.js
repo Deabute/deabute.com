@@ -1,5 +1,5 @@
 // rtctest.js ~ copyright 2019 Paul Beaudet ~ MIT License
-// rtcSignal version - 1.0.21
+// rtcSignal version - 1.0.22
 // This test requires at least two browser windows, to open a data connection between two peers
 // Timeout index
 var NOMATCH = 0;
@@ -9,6 +9,7 @@ var MISSEDBOAT = 3;
 
 var rtc = { // stun servers in config allow client to introspect a communication path to offer a remote peer
     config: {'iceServers': [ {'urls': 'stun:stun.stunprotocol.org:3478'}, {'urls': 'stun:stun.l.google.com:19302'} ]},
+    lastMatches: [''],
     peer: null,                                                 // placeholder for parent webRTC object instance
     connectionId: '',
     init: function(onSetupCB){                                  // varify mediastream before calling
@@ -29,7 +30,7 @@ var rtc = { // stun servers in config allow client to introspect a communication
         rtc.peer.createOffer(offerConfig).then( function onOffer(desc){       // get sdp data to show user, that will share with a friend
             return rtc.peer.setLocalDescription(desc);                        // note what sdp data self will use
         }).then( function onSet(){
-            ws.send({type: 'offer', oid: localStorage.oid, sdp: rtc.peer.localDescription}); // send offer to connect
+            ws.send({type: 'offer', oid: localStorage.oid, sdp: rtc.peer.localDescription, lastMatches: rtc.lastMatches}); // send offer to connect
         });
     },
     giveAnswer: function(sdp, oidFromOffer){
@@ -41,13 +42,17 @@ var rtc = { // stun servers in config allow client to introspect a communication
             ws.send({type: 'answer', oid: localStorage.oid, sdp: rtc.peer.localDescription, peerId: oidFromOffer}); // send offer to friend
         });                                                     // note answer is shown to user in onicecandidate event above once resolved
     },
-    close: function(){ // returns peer's oid
+    close: function(humanDisconnect){ // returns peer's oid
         if(rtc.peer){  // clean up pre existing rtc connection if there
             ws.send({type: 'pause', oid: localStorage.oid});
             rtc.peer.close();
             rtc.peer = null;
         }
         var peerId = rtc.connectionId;
+        if(humanDisconnect){
+            if(rtc.lastMatches.unshift(peerId) > 3){rtc.lastMatches.pop();}
+            localStorage.lastMatches = JSON.stringify(rtc.lastMatches);
+        }
         dataPeer.connected = false;
         dataPeer.ready = false;
         dataPeer.peerName = '';
@@ -84,14 +89,14 @@ var dataPeer = {
         } else if(req.type === 'connect'){
             dataPeer.peerName = req.username;
             if(dataPeer.clientReady){dataPeer.readySignal(dataPeer.ready);}
-            // else                    {serviceTime.downCount();}
+            else                    {app.consent();}
         }
     },
     disconnect: function(talking){
         dataPeer.send({type: 'disconnect'}); // tell friend we are done
         dataPeer.clientReady = false;        // no longer ready
         dataPeer.talking = false;            // done talking
-        return rtc.close();                   // return id of who we were talking to
+        return rtc.close(true);              // return id of who we were talking to
     },
     send: function(sendObj){
         try{sendObj = JSON.stringify(sendObj);} catch(error){console.log(error);}
@@ -154,7 +159,7 @@ var ws = {
             ws.active = true;
             ws.connected = true;
             ws.instance.onmessage = ws.incoming;
-            ws.send({type: 'connected', oid: localStorage.oid});
+            ws.send({type: 'connected', oid: localStorage.oid, lastMatches: rtc.lastMatches});
             ws.onclose = function onSocketClose(){ws.connected = false;};
             ws.onerror = function onSocketError(){console.log(error);};
             ws.onConnection();
@@ -165,7 +170,7 @@ var ws = {
         ws.active = false;
     },
     repool: function(){
-        if(!ws.active){ws.send({type: 'repool', oid: localStorage.oid});} // let server know we can be rematched
+        if(!ws.active){ws.send({type: 'repool', oid: localStorage.oid, lastMatches: rtc.lastMatches});} // let server know we can be rematched
         ws.active = true;
     },
     incoming: function(event){           // handle incoming socket messages
@@ -342,6 +347,8 @@ var persistence = {
         if(localStorage){
             if(!localStorage.oid){localStorage.oid = persistence.createOid();}
             if(!localStorage.username){localStorage.username = 'Anonymous';}
+            if(!localStorage.lastMatches){localStorage.lastMatches = JSON.stringify(rtc.lastMatches);}
+            else{rtc.lastMatches = JSON.parse(localStorage.lastMatches);}
             onStorageLoad(true);
         } else { onStorageLoad(false); }
 
