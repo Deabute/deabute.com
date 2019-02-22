@@ -138,7 +138,7 @@ var dataPeer = {
     missedTheBoat: function(){
         dataPeer.clientReady = true;
         app.timeouts[MISSEDBOAT] = setTimeout(function noLongerReady(){
-            app.timeouts[3] = null;
+            app.timeouts[MISSEDBOAT] = null;
             dataPeer.clientReady = false;
             app.consent();
         }, 15000);
@@ -441,6 +441,7 @@ var serviceTime = {
                 firstTimeout = diff % 1000;
             }
             if(serviceTime.countDown < serviceTime.consentSecond){     // time to consent has passed
+                console.log('past typical consent time');
                 app.consent();
                 serviceTime.countDown = serviceTime.consentSecond - 1; // give time for someone to actually consent before confluence
             }
@@ -478,12 +479,15 @@ var app = {
                     window.addEventListener("beforeunload", function(event){
                         event.returnValue = '';
                         if(ws.connected){rtc.close();ws.reduce();}
-                        app.timeouts.forEach(function each(timeout){if(timeout){clearTimeout(timeout);}});
+                        app.clearTimouts();
                     });
                     serviceTime.outside();
                 } else {app.discription.innerHTML = 'Incompatible browser';}
             });
         });
+    },
+    clearTimouts: function(){
+        app.timeouts.forEach(function each(timeout){if(timeout){clearTimeout(timeout);}});
     },
     outsideService: function(){
         app.setupButton.hidden = true;
@@ -536,6 +540,7 @@ var app = {
         app.connectButton.hidden = false;
     },
     whenConnected: function(){
+        app.clearTimouts();
         app.discription.innerHTML = 'connected to ' + dataPeer.peerName;
         app.connectButton.onclick = app.disconnect;
         app.connectButton.innerHTML = 'Disconnect';
