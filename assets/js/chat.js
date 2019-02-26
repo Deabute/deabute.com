@@ -448,10 +448,19 @@ var serviceTime = {
             app.timeouts[COUNTDOWN] = setTimeout(serviceTime.downCount, firstTimeout);
         } else {serviceTime.box.innerHTML = 'Currently matching users';}
     },
+    readableLeft: function(secondsLeft){
+        var minutes = 0;
+        var seconds = 0;
+        if(secondsLeft > 60){
+            minutes = Math.floor(secondsLeft / 60);
+            seconds = secondsLeft % 60;
+        } else {seconds = secondsLeft;}
+        return minutes + ' minutes and ' + seconds + ' seconds remaining';
+    },
     downCount: function(){
         app.timeouts[COUNTDOWN] = setTimeout(function nextSecond(){
             if(serviceTime.countDown){
-                serviceTime.box.innerHTML = serviceTime.countDown;
+                serviceTime.box.innerHTML = serviceTime.readableLeft(serviceTime.countDown);
                 serviceTime.countDown--;
                 if(serviceTime.countDown === serviceTime.consentSecond){app.consent();}
                 else if(serviceTime.countDown === serviceTime.confluenceSecond){dataPeer.onConfluence();}
