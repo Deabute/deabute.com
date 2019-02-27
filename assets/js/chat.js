@@ -1,5 +1,5 @@
 // rtctest.js ~ copyright 2019 Paul Beaudet ~ MIT License
-// rtcSignal version - 1.0.22
+// rtcSignal version - 1.0.23
 // This test requires at least two browser windows, to open a data connection between two peers
 // Timeout index
 var NOMATCH = 0;
@@ -189,6 +189,8 @@ var ws = {
             if(req.pool){pool.set(req.pool);}
             rtc.init(rtc.createOffer);
             prompt.caller = true; // defines who instigator is, to split labor
+        } else if(req.type === 'setPool'){
+            pool.set(req.pool);
         } else if(req.type === 'pool'){
             pool.increment(req.count);
         } else if(req.type === 'nomatch'){
