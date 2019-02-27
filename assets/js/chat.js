@@ -358,6 +358,7 @@ var serviceTime = {
     countDown: 0,
     box: document.getElementById('timebox'),
     WINDOW: document.getElementById('serviceWindow').innerHTML,
+    sessionInd: document.getElementById('sessionInd'),
     consentSecond: 3050,
     confluenceSecond: 3000,
     test: function(){
@@ -473,15 +474,16 @@ var app = {
                     window.addEventListener("beforeunload", function(event){
                         event.returnValue = '';
                         if(ws.connected){rtc.close();ws.reduce();}
-                        app.clearTimouts();
+                        app.clearTimeouts();
                     });
                     serviceTime.outside();
                 } else {app.discription.innerHTML = 'Incompatible browser';}
             });
         });
     },
-    clearTimouts: function(){
+    clearTimeouts: function(){
         app.timeouts.forEach(function each(timeout){if(timeout){clearTimeout(timeout);}});
+        serviceTime.sessionInd.hidden = true;
     },
     outsideService: function(){
         app.setupButton.hidden = true;
@@ -498,8 +500,7 @@ var app = {
         } else { app.setupButton.innerHTML = 'Enter name, allow microphone'; }
     },
     issue: function(issue){
-        app.discription.innerHTML = 'Sorry there was an issue: ' + issue +
-        '\n Unmute, remove restriction of microphone in address bar and try again, reload, or use chrome/firefox maybe?';
+        app.discription.innerHTML = 'Sorry maybe, Unmute, remove restriction of microphone in address bar and try again, reload, or use chrome/firefox?';
         app.setupButton.hidden = false;
     },
     setup: function(){
@@ -534,7 +535,7 @@ var app = {
         app.connectButton.hidden = false;
     },
     whenConnected: function(){
-        app.clearTimouts();
+        app.clearTimeouts();
         app.discription.innerHTML = 'connected to ' + dataPeer.peerName;
         app.connectButton.onclick = app.disconnect;
         app.connectButton.innerHTML = 'Disconnect';
