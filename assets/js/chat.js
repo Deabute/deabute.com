@@ -189,7 +189,6 @@ var ws = {
             if(req.pool){pool.set(req.pool);}
             rtc.init(rtc.createOffer);
             prompt.caller = true; // defines who instigator is, to split labor
-            // app.connect();
         } else if(req.type === 'pool'){
             pool.increment(req.count);
         } else if(req.type === 'nomatch'){
@@ -248,43 +247,22 @@ var prompt = {
     caller: false,
     feild: document.getElementById('promptFeild'),
     form: document.getElementById('promptForm'),
-    answers: document.getElementById('formAnswers'),
-    loaded: false, // only needs to load once, but we're probably going only call it when we need it
-    load: function(onScriptCallback){
-        if(prompt.loaded){
-            onScriptCallback();
-        } else {
-            var script = document.createElement('script');
-            script.onload = function(){
-                prompt.loaded = true;
-                onScriptCallback();
-            };
-            script.src = document.getElementById('host').innerHTML + '/assets/js/questions.js';
-            document.head.appendChild(script);
-        }
+    nps: {
+        id: 'usernps',
+        question: 'How did it go? If you knew them better, or you do know them, would you introduce them to another friend?',
+        answers: ['definitely not', 'no', 'meh', 'yes', 'definitely']
     },
-    findCommon: function(){ // only find commonalities if we are connected to a peer this is called by
+    answers: document.getElementById('formAnswers'),
+    /* findCommon: function(){ // only find commonalities if we are connected to a peer this is called by
         var halflist = affinity.length / 2;
         if(prompt.caller){                    // search list from back
             halflist = Math.floor(halflist);  // take longer half of list
-            for(var longHalf = affinity.length - 1; longHalf >= halflist; longHalf--){
-                console.log(affinity[longHalf].question);
-            }
+            for(var longHalf = affinity.length - 1; longHalf >= halflist; longHalf--){console.log(affinity[longHalf].question);}
         } else {                             // serch list from from front
             halflist = Math.floor(halflist); // take shorter half of list
-            for(var shortHalf = 0; shortHalf < halflist; shortHalf++){
-                console.log(affinity[shortHalf].question);
-            }
+            for(var shortHalf = 0; shortHalf < halflist; shortHalf++){console.log(affinity[shortHalf].question);}
         }
-    },
-    closingQuestion: function(peerId, onAnswer){
-        prompt.load(function(){
-            prompt.create(postChat[0], peerId, function whenAnswered(){
-                prompt.remove();
-                onAnswer();
-            });
-        });
-    },
+    }, */
     create: function(questionObj, peerId, onAnswer){
         prompt.form.hidden = false;
         prompt.feild.innerHTML = questionObj.question;
@@ -309,6 +287,7 @@ var prompt = {
         function whenDone(answers){
             if(answers){localStorage.answers = JSON.stringify(answers);}
             prompt.caller = false;
+            prompt.remove();
             onAnswer();
         }
         prompt.form.addEventListener('submit', function(event){
@@ -347,8 +326,13 @@ var persistence = {
         if(localStorage){
             if(!localStorage.oid){localStorage.oid = persistence.createOid();}
             if(!localStorage.username){localStorage.username = 'Anonymous';}
-            if(!localStorage.lastMatches){localStorage.lastMatches = JSON.stringify(rtc.lastMatches);}
-            else{rtc.lastMatches = JSON.parse(localStorage.lastMatches);}
+            if(!localStorage.lastMatches){
+                if(serviceTime.WINDOW === 't'){localStorage.lastMatches = '[""]';}
+                else {localStorage.lastMatches = JSON.stringify(rtc.lastMatches);}
+            } else {
+                if(serviceTime.WINDOW === 't'){localStorage.lastMatches = '[""]';}
+                else {rtc.lastMatches = JSON.parse(localStorage.lastMatches);}
+            }
             onStorageLoad(true);
         } else { onStorageLoad(false); }
 
@@ -468,8 +452,7 @@ var serviceTime = {
             } else {
                 serviceTime.box.innerHTML = 'Currently matching users';  // display true begin time
                 serviceTime.box.innerHTML = 0;
-                serviceTime.countDown = 0;
-                // TODO setTimeout for next window
+                serviceTime.countDown = 0; // TODO setTimeout for next window
             }
         }, 1000);
     }
@@ -531,7 +514,7 @@ var app = {
     disconnect: function(){
         media.switchAudio(false);
         var peerId = dataPeer.disconnect();
-        prompt.closingQuestion(peerId, function(){ // closes rtc connection, order important
+        prompt.create(prompt.nps, peerId, function(){ // closes rtc connection, order important
             ws.repool();
             app.consent();
         });
