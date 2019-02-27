@@ -364,20 +364,14 @@ var serviceTime = {
     test: function(){
         if(serviceTime.WINDOW === 't'){
             var date = new Date();
-            var hour = date.getHours();
-            var day = date.getDay();
-            serviceTime.START = [day, hour + 1, 1];
-            serviceTime.END = [day, hour + 2];
+            serviceTime.START = [date.getDay(), date.getHours() + 1, 1];
+            serviceTime.END = [date.getDay(), date.getHours() + 2];
         }
     },
     testOnConnect: function(){
         if(serviceTime.WINDOW === 't'){
             var date = new Date();
-            var minute = date.getMinutes();
-            var seconds = date.getSeconds();
-            var secondsAfter = minute * 60 + seconds;
-            var wouldBeCurrentCountDown = 3600 - secondsAfter;
-            serviceTime.consentSecond = wouldBeCurrentCountDown - 15;
+            serviceTime.consentSecond = 3600 - (date.getMinutes() * 60 + date.getSeconds()) - 15;
             serviceTime.confluenceSecond = serviceTime.consentSecond - 10;
         }
     },
