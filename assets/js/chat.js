@@ -6,6 +6,7 @@ var rtc = { // stun servers in config allow client to introspect a communication
     lastMatches: [''],
     peer: null,                                                 // placeholder for parent webRTC object instance
     connectionId: '',                                           // oid of peer we are connected w/
+    lastPeer: '',
     init: function(onSetupCB){                                  // varify mediastream before calling
         rtc.peer = new RTCPeerConnection(rtc.config);           // create new instance for local client
         media.stream.getTracks().forEach(function(track){rtc.peer.addTrack(track, media.stream);});
@@ -44,6 +45,7 @@ var rtc = { // stun servers in config allow client to introspect a communication
             if(rtc.lastMatches.unshift(rtc.connectionId) > 3){rtc.lastMatches.pop();}
             localStorage.lastMatches = JSON.stringify(rtc.lastMatches);
         }
+        rtc.lastPeer = rtc.connectionId;
         rtc.connectionId = '';
     }
 };
@@ -238,75 +240,70 @@ var prompt = {
         answers: ['definitely not', 'no', 'meh', 'yes', 'definitely']
     },
     answers: document.getElementById('formAnswers'),
-    create: function(questionObj, peerId, onAnswer){
+    create: function(questionObj, onAnswer){
         prompt.form.hidden = false;
         prompt.feild.innerHTML = questionObj.question;
-        var answerBundle = document.createElement('div');
-        answerBundle.id = 'answerBundle';
+        var answerBundle = document.createElement('div'); answerBundle.id = 'answerBundle';
         prompt.answers.appendChild(answerBundle);
-        var halfway = Math.floor(questionObj.answers.length/2);
+        var halfway = Math.floor(questionObj.answers.length/2); // figure middle answer index
         for(var i = 0; i < questionObj.answers.length; i++){
             var radioLabel = document.createElement('label');
             var radioOption = document.createElement('input');
-            if(i === halfway){radioOption.checked = true;}
+            if(i === halfway){radioOption.checked = true;}      // set default selection
             radioLabel.for = 'answer' + i; radioLabel.innerHTML = questionObj.answers[i];
             radioOption.id = 'answer' + i; radioOption.type = 'radio'; radioOption.name = 'answer'; radioOption.value = i;
-            answerBundle.appendChild(radioOption);
-            answerBundle.appendChild(radioLabel);
+            answerBundle.appendChild(radioOption); answerBundle.appendChild(radioLabel); // append option and label
             answerBundle.appendChild(document.createElement('br'));
         }
-        function whenDone(answers){
-            if(answers){localStorage.answers = JSON.stringify(answers);}
-            prompt.caller = false;
-            prompt.remove();
-            onAnswer();
-        }
-        prompt.form.addEventListener('submit', function(event){
+        prompt.form.addEventListener('submit', function submitAnswer(event){
             event.preventDefault();
             var radios = document.getElementsByName('answer');
-            var unifiedIndex = 4 - halfway; // this gives relitive values for questions with various numbers of answers which can be added with same relitive value
-            for(var entry = 0; entry < radios.length; entry++){
-                if(radios[entry].checked){
-                    if(localStorage.answers){
-                        var answers = JSON.parse(localStorage.answers);
-                        for(var peer = 0; peer < answers.length; peer++){
-                            if(answers[peer].oid === peerId){
-                                answers[peer].nps = unifiedIndex;
-                                whenDone(answers);
-                                return;
-                            }
+            var unifiedIndex = 4 - halfway; // determines relitive start value from universal middle value
+            for(var entry = 0; entry < radios.length; entry++){                   // for all posible current question answers
+                if(radios[entry].checked){                                        // find checked entry
+                    for(var peer = 0; peer < persistence.answers.length; peer++){ // for existing user answer entries
+                        if(persistence.answers[peer].oid === rtc.lastPeer){       // if an existing entry matches this peer
+                            persistence.answers[peer].nps = unifiedIndex;         // add property to entry
+                            prompt.onSubmit(onAnswer); return;                    // save and end function
                         }
-                        answers.push({oid: peerId, nps: unifiedIndex});
-                    } else { localStorage.answers = JSON.stringify([{oid: peerId, nps: unifiedIndex}]);}
-                    whenDone();
-                    return;
+                    }
+                    persistence.answers.push({oid: rtc.lastPeer, nps: unifiedIndex}); // if peer not found push as new entry
+                    prompt.onSubmit(onAnswer); return;                                // save and end function
                 }
-                unifiedIndex++;
+                unifiedIndex++; // count up from relitive start value. relitive to universal middle value (4)
             }
         }, false);
     },
-    remove: function(){
+    onSubmit: function(whenDone){
+        localStorage.answers = JSON.stringify(persistence.answers); // save any recorded answer
+        prompt.caller = false;
         prompt.answers.innerHTML = '';
         prompt.form.hidden = true;
         prompt.feild.innerHTML = '';
+        whenDone();
     }
 };
 
 var persistence = {
+    answers: [],
     init: function(onStorageLoad){
         if(localStorage){
             if(!localStorage.oid){localStorage.oid = persistence.createOid();}
             if(!localStorage.username){localStorage.username = 'Anonymous';}
-            if(!localStorage.lastMatches){
-                if(serviceTime.WINDOW === 't'){localStorage.lastMatches = '[""]';}
-                else {localStorage.lastMatches = JSON.stringify(rtc.lastMatches);}
-            } else {
+            if(localStorage.answers){persistence.answers = JSON.parse(localStorage.answers);}
+            else                    {localStorage.answers = JSON.stringify(persistence.answers);}
+            if(localStorage.lastMatches){
                 if(serviceTime.WINDOW === 't'){localStorage.lastMatches = '[""]';}
                 else {rtc.lastMatches = JSON.parse(localStorage.lastMatches);}
+            } else {
+                if(serviceTime.WINDOW === 't'){localStorage.lastMatches = '[""]';}
+                else {localStorage.lastMatches = JSON.stringify(rtc.lastMatches);}
             }
             onStorageLoad(true);
         } else { onStorageLoad(false); }
-
+    },
+    saveAnswer: function(){
+        localStorage.answers = JSON.stringify(persistence.answers);
     },
     createOid: function(){
         var increment = Math.floor(Math.random() * (16777216)).toString(16);
@@ -468,7 +465,7 @@ var app = {
     },
     disconnect: function(human){
         media.switchAudio(false);
-        prompt.create(prompt.nps, rtc.connectionId, function whenAnswered(){ // closes rtc connection, order important
+        prompt.create(prompt.nps, function whenAnswered(){ // closes rtc connection, order important
             ws.repool();
             app.consent();
         });
