@@ -8,6 +8,7 @@ google-ID: 'UA-116215456-1'
 menu:
 - {name: 'Blog', folder: 'pages', file: 'projects.html'}
 - {name: 'About', folder: 'pages', file: 'about.html'}
+- {name: 'Chat', file: 'chat.html'}
 
 # Customize site text
 pagination:
