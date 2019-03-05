@@ -319,8 +319,8 @@ var DEBUG_TIME = 6;
 var serviceTime = {
     DEBUG: false,
     begin: new Date(),
-    START: [5, 19, 50], // third argument is minute for prep starts, sessions always start on hour
-    END: [5, 21],
+    START: [3, 19, 50], // third argument is minute for prep starts, sessions always start on hour
+    END: [3, 21],
     countDown: 0,
     box: document.getElementById('timebox'),
     WINDOW: document.getElementById('serviceWindow').innerHTML,
