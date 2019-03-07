@@ -215,6 +215,7 @@ var media = {
     init: function(onMedia){ // get user permistion to use media
         var onMediaCallback = onMedia ? onMedia : function noSoupForYou(){};
         navigator.mediaDevices.getUserMedia({audio: true, video: false}).then(function gotMedia(mediaStream){
+            console.log('got media');
             media.stream = mediaStream;
             var audioTracks = mediaStream.getAudioTracks();
             if(audioTracks.length){
@@ -460,6 +461,7 @@ var app = {
         } else { app.setupButton.innerHTML = 'Enter name, allow microphone'; }
     },
     issue: function(issue){
+        console.log(issue);
         app.discription.innerHTML = 'Sorry maybe, Unmute, remove restriction of microphone in address bar and try again, reload, or use chrome/firefox?';
         app.setupButton.hidden = false;
     },
