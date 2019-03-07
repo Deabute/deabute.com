@@ -328,8 +328,6 @@ var CONFLUENCE_SECOND = 3600 - (CONFLUENCE_MINUTE * 60 + 50);
 var serviceTime = {
     DEBUG: false,
     begin: new Date(),
-    START: [DAY_OF_WEEK, HOUR_OF_DAY, OPEN_MINUTE], // third argument is minute for prep starts, sessions always start on hour
-    END: [DAY_OF_WEEK, HOUR_OF_DAY + 1],
     countDown: 0,
     box: document.getElementById('timebox'),
     WINDOW: document.getElementById('serviceWindow').innerHTML,
@@ -337,16 +335,18 @@ var serviceTime = {
     test: function(){
         if(serviceTime.WINDOW === 't'){
             var date = new Date();
-            serviceTime.START = [date.getDay(), date.getHours() + 1, 1];
-            serviceTime.END = [date.getDay(), date.getHours() + 2];
+            DAY_OF_WEEK = date.getDay();
+            HOUR_OF_DAY = date.getHours();
+            OPEN_MINUTE = 0;
         }
     },
     testOnConnect: function(){
         if(serviceTime.WINDOW === 't'){
-            // NOTE need to fix
             var date = new Date();
-            serviceTime.consentSecond = 3600 - (date.getMinutes() * 60 + date.getSeconds()) - 10;
-            serviceTime.confluenceSecond = serviceTime.consentSecond - 10;
+            CONSENT_MINUTE = date.getMinute() + 1;
+            CONFLUENCE_MINUTE = CONSENT_MINUTE;
+            CONSENT_SECOND = 3600 - (CONSENT_MINUTE * 60 + TIME_FOR_CONSENT);
+            CONFLUENCE_SECOND = 3600 - (CONFLUENCE_MINUTE * 60 + 50);
         }
     },
     closed: function(millisTill){
