@@ -52,6 +52,7 @@ var rtc = { // stun servers in config allow client to introspect a communication
     }
 };
 
+var TIME_FOR_CONSENT = 30;
 var dataPeer = {
     channel: null,
     connected: false,   // WE, two computer peers are connected
@@ -106,10 +107,12 @@ var dataPeer = {
         if(dataPeer.peerName){
             dataPeer.send({type:'ready', username: localStorage.username});
             dataPeer.whenReady();
-        } else {
-            if(pool.count > 1){ws.send({type: 'unmatched', oid: localStorage.oid});} // let server know we can be rematched
-            app.timeouts = setTimeout(app.consent, 15000);
-        }
+        } else { dataPeer.setReconsentTime(false);}
+    },
+    setReconsentTime: function(inactive){
+        if(inactive){ws.repool();}
+        else if(pool.count > 1){ws.send({type: 'unmatched', oid: localStorage.oid});} // let server know we can be rematched
+        app.timeouts = setTimeout(app.consent, TIME_FOR_CONSENT * 1000);
     },
     whenReady: function(){
         if(dataPeer.ready){
@@ -124,8 +127,7 @@ var dataPeer = {
         if(!dataPeer.talking){      // given conversation is a dud
             if(dataPeer.peerName){dataPeer.send({type: 'terminate'});}
             if(dataPeer.clientReady){
-                ws.send({type: 'unmatched', oid: localStorage.oid}); // let server know we can be rematched
-                app.timeouts = setTimeout(app.consent, 15000);       // show waiting for rematch
+                dataPeer.setReconsentTime(false);
             } else {
                 ws.reduce(true);
                 app.connectButton.onclick = dataPeer.payingAttentionAgain;
@@ -135,8 +137,7 @@ var dataPeer = {
     },
     payingAttentionAgain: function(){
         dataPeer.clientReady = true;
-        app.timeouts = setTimeout(app.consent, 15000);
-        ws.repool();                                  // let server know we can be rematched
+        dataPeer.setReconsentTime(true);
     }
 };
 
@@ -319,7 +320,6 @@ var persistence = {
 
 var DAY_OF_WEEK = 4;
 var HOUR_OF_DAY = 15;
-var TIME_FOR_CONSENT = 30;
 var CONSENT_MINUTE = 16;
 var OPEN_MINUTE = CONSENT_MINUTE - 10;
 var CONFLUENCE_MINUTE = CONSENT_MINUTE;
@@ -504,11 +504,6 @@ var app = {
     },
     waiting: function(){
         app.discription.innerHTML = 'Waiting for session to start';
-        app.connectButton.hidden = true;
-    },
-    connect: function(){
-        rtc.init(rtc.createOffer);
-        prompt.caller = true; // defines who instigator is, to split labor
         app.connectButton.hidden = true;
     }
 };
