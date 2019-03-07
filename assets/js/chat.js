@@ -343,7 +343,7 @@ var serviceTime = {
     testOnConnect: function(){
         if(serviceTime.WINDOW === 't'){
             var date = new Date();
-            CONSENT_MINUTE = date.getMinute() + 1;
+            CONSENT_MINUTE = date.getMinutes() + 1;
             CONFLUENCE_MINUTE = CONSENT_MINUTE;
             CONSENT_SECOND = 3600 - (CONSENT_MINUTE * 60 + TIME_FOR_CONSENT);
             CONFLUENCE_SECOND = 3600 - (CONFLUENCE_MINUTE * 60 + 50);
