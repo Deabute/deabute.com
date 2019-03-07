@@ -320,7 +320,7 @@ var persistence = {
 var DAY_OF_WEEK = 4;
 var HOUR_OF_DAY = 15;
 var TIME_FOR_CONSENT = 30;
-var CONSENT_MINUTE = 58;
+var CONSENT_MINUTE = 16;
 var OPEN_MINUTE = CONSENT_MINUTE - 10;
 var CONFLUENCE_MINUTE = CONSENT_MINUTE;
 var CONSENT_SECOND = 3600 - (CONSENT_MINUTE * 60 + TIME_FOR_CONSENT);
@@ -343,7 +343,7 @@ var serviceTime = {
     testOnConnect: function(){
         if(serviceTime.WINDOW === 't'){
             var date = new Date();
-            CONSENT_MINUTE = date.getMinutes() + 1;
+            CONSENT_MINUTE = date.getMinutes();
             CONFLUENCE_MINUTE = CONSENT_MINUTE;
             CONSENT_SECOND = 3600 - (CONSENT_MINUTE * 60 + TIME_FOR_CONSENT);
             CONFLUENCE_SECOND = 3600 - (CONFLUENCE_MINUTE * 60 + 50);
@@ -399,7 +399,10 @@ var serviceTime = {
                 serviceTime.countDown = TIME_FOR_CONSENT - 1; // give time for someone to actually consent before confluence
             }
             app.timeouts = setTimeout(serviceTime.downCount, firstTimeout);
-        } else {serviceTime.box.innerHTML = 'Currently matching users';}
+        } else {
+            serviceTime.box.innerHTML = 'Currently matching users';
+            app.consent();
+        }
     },
     downCount: function(){
         app.timeouts = setTimeout(function nextSecond(){
