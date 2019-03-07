@@ -25,6 +25,7 @@ var rtc = { // stun servers in config allow client to introspect a communication
             return rtc.peer.setLocalDescription(desc);                        // note what sdp data self will use
         }).then( function onSet(){
             ws.send({type: 'offer', oid: localStorage.oid, sdp: rtc.peer.localDescription, lastMatches: rtc.lastMatches}); // send offer to connect
+            console.log('making offer');
         });
     },
     giveAnswer: function(sdp, oidFromOffer){
@@ -33,6 +34,7 @@ var rtc = { // stun servers in config allow client to introspect a communication
         rtc.peer.createAnswer().then(function onAnswer(answer){ // create answer to remote peer that offered
             return rtc.peer.setLocalDescription(answer);        // set that offer as our local discripion
         }).then(function onOfferSetDesc(){
+            console.log('sending answer to ' + oidFromOffer);
             ws.send({type: 'answer', oid: localStorage.oid, sdp: rtc.peer.localDescription, peerId: oidFromOffer}); // send offer to friend
         });                                                     // note answer is shown to user in onicecandidate event above once resolved
     },
@@ -82,7 +84,7 @@ var dataPeer = {
         } else if(req.type === 'ready'){
             dataPeer.whenReady();
         } else if(req.type === 'connect'){
-            dataPeer.peerName = req.username;
+            dataPeer.peerName = req.username; console.log('connected to ' + req.username);
             if(dataPeer.clientReady){dataPeer.readySignal();}
         }
     },
@@ -319,8 +321,8 @@ var DEBUG_TIME = 6;
 var serviceTime = {
     DEBUG: false,
     begin: new Date(),
-    START: [4, 12, 50], // third argument is minute for prep starts, sessions always start on hour
-    END: [4, 13],
+    START: [4, 13, 8], // third argument is minute for prep starts, sessions always start on hour
+    END: [4, 14],
     countDown: 0,
     box: document.getElementById('timebox'),
     WINDOW: document.getElementById('serviceWindow').innerHTML,
