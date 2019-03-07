@@ -143,13 +143,14 @@ var dataPeer = {
 
 var ws = {
     active: false,
-    instance: null,            // placeholder for websocket object
-    connected: false,          // set to true when connected to server
-    onConnection: null,        // default to waiting for connections to pool dialog
+    instance: null,                           // placeholder for websocket object
+    connected: false,                         // set to true when connected to server
+    onConnection: function(){app.consent();}, // default to waiting for connections to pool dialog
     server: document.getElementById('socketserver').innerHTML,
     init: function(){
         ws.instance = new WebSocket(ws.server);
         ws.instance.onopen = function(event){
+            console.log('connected to server');
             ws.active = true;
             ws.connected = true;
             ws.instance.onmessage = ws.incoming;
@@ -400,10 +401,7 @@ var serviceTime = {
                 serviceTime.countDown = TIME_FOR_CONSENT - 1; // give time for someone to actually consent before confluence
             }
             app.timeouts = setTimeout(serviceTime.downCount, firstTimeout);
-        } else {
-            serviceTime.box.innerHTML = 'Currently matching users';
-            app.consent();
-        }
+        } else {serviceTime.box.innerHTML = 'Currently matching users';}
     },
     downCount: function(){
         app.timeouts = setTimeout(function nextSecond(){
