@@ -317,17 +317,19 @@ var persistence = {
     },
 };
 
+var DAY_OF_WEEK = 4;
+var HOUR_OF_DAY = 15;
 var TIME_FOR_CONSENT = 30;
-var CONSENT_MINUTE = 45;
-var OPEN_MINUTE = CONSENT_MINUTE - 3;
+var CONSENT_MINUTE = 58;
+var OPEN_MINUTE = CONSENT_MINUTE - 10;
 var CONFLUENCE_MINUTE = CONSENT_MINUTE;
 var CONSENT_SECOND = 3600 - (CONSENT_MINUTE * 60 + TIME_FOR_CONSENT);
 var CONFLUENCE_SECOND = 3600 - (CONFLUENCE_MINUTE * 60 + 50);
 var serviceTime = {
     DEBUG: false,
     begin: new Date(),
-    START: [4, 15, OPEN_MINUTE], // third argument is minute for prep starts, sessions always start on hour
-    END: [4, 16],
+    START: [DAY_OF_WEEK, HOUR_OF_DAY, OPEN_MINUTE], // third argument is minute for prep starts, sessions always start on hour
+    END: [DAY_OF_WEEK, HOUR_OF_DAY + 1],
     countDown: 0,
     box: document.getElementById('timebox'),
     WINDOW: document.getElementById('serviceWindow').innerHTML,
@@ -348,7 +350,7 @@ var serviceTime = {
         }
     },
     closed: function(millisTill){
-        serviceTime.begin.setHours(serviceTime.START[1], 0);     // set back to true begin time, always on hour
+        serviceTime.begin.setHours(HOUR_OF_DAY, 0);     // set back to true begin time, always on hour
         app.outsideService();
         app.timeouts = setTimeout(serviceTime.open, millisTill); // open in upcoming window
     },
@@ -358,11 +360,11 @@ var serviceTime = {
         var dateNow = serviceTime.begin.getDate();
         var timeNow = serviceTime.begin.getTime();
         var endTime = new Date();
-        serviceTime.begin.setDate(dateNow + (serviceTime.START[0] - dayNow));
-        serviceTime.begin.setHours(serviceTime.START[1] - 1, serviceTime.START[2], 0, 0); // open window x minutes before actual begin
+        serviceTime.begin.setDate(dateNow + (DAY_OF_WEEK - dayNow));
+        serviceTime.begin.setHours(HOUR_OF_DAY - 1, OPEN_MINUTE, 0, 0); // open window x minutes before actual begin
         var millisBegin = serviceTime.begin.getTime();
-        endTime.setDate(dateNow + (serviceTime.END[0] - dayNow));
-        endTime.setHours(serviceTime.END[1], 0, 0, 0);
+        endTime.setDate(dateNow + (DAY_OF_WEEK - dayNow));
+        endTime.setHours(HOUR_OF_DAY + 1, 0, 0, 0);
         if(millisBegin > timeNow){                              // if begin is in future
             if(endTime.getTime(endTime.getDate() - 7) > timeNow){serviceTime.closed(millisBegin - timeNow);} // if last window ending is past, outside of window
             else{serviceTime.open();}
@@ -375,7 +377,7 @@ var serviceTime = {
         serviceTime.box.innerHTML = serviceTime.begin.toLocaleString();  // display true begin time
     },
     open: function(){
-        serviceTime.begin.setHours(serviceTime.START[1], 0);             // set back to true begin time, always on hour
+        serviceTime.begin.setHours(HOUR_OF_DAY, 0);             // set back to true begin time, always on hour
         serviceTime.test();
         app.proposition(); // ask about name and microphone to start getting set up
         ws.onConnection = serviceTime.onWSConnect;
@@ -392,7 +394,6 @@ var serviceTime = {
                 serviceTime.countDown = Math.floor(diff / 1000);
                 firstTimeout = diff % 1000;
             }
-            var consentTime = 3600 - (serviceTime.START[3] * 60 + serviceTime.START[4]);
             if(serviceTime.countDown < CONSENT_SECOND){       // time to consent has passed
                 app.consent();                                // given we past concent second
                 serviceTime.countDown = TIME_FOR_CONSENT - 1; // give time for someone to actually consent before confluence
