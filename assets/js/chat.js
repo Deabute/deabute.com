@@ -143,9 +143,9 @@ var dataPeer = {
 
 var ws = {
     active: false,
-    instance: null,            // placeholder for websocket object
-    connected: false,          // set to true when connected to server
-    onConnection: app.consent, // default to waiting for connections to pool dialog
+    instance: null,                                // placeholder for websocket object
+    connected: false,                              // set to true when connected to server
+    onConnection: function(){console.log('huh');}, // default to waiting for connections to pool dialog
     server: document.getElementById('socketserver').innerHTML,
     init: function(){
         ws.instance = new WebSocket(ws.server);
