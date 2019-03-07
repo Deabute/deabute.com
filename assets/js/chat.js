@@ -317,18 +317,21 @@ var persistence = {
     },
 };
 
-var DEBUG_TIME = 6;
+var TIME_FOR_CONSENT = 30;
+var CONSENT_MINUTE = 45;
+var OPEN_MINUTE = CONSENT_MINUTE - 3;
+var CONFLUENCE_MINUTE = CONSENT_MINUTE;
+var CONSENT_SECOND = 3600 - (CONSENT_MINUTE * 60 + TIME_FOR_CONSENT);
+var CONFLUENCE_SECOND = 3600 - (CONFLUENCE_MINUTE * 60 + 50);
 var serviceTime = {
     DEBUG: false,
     begin: new Date(),
-    START: [4, 13, 8], // third argument is minute for prep starts, sessions always start on hour
-    END: [4, 14],
+    START: [4, 15, OPEN_MINUTE], // third argument is minute for prep starts, sessions always start on hour
+    END: [4, 16],
     countDown: 0,
     box: document.getElementById('timebox'),
     WINDOW: document.getElementById('serviceWindow').innerHTML,
     sessionInd: document.getElementById('sessionInd'),
-    consentSecond: 30,
-    confluenceSecond: 10,
     test: function(){
         if(serviceTime.WINDOW === 't'){
             var date = new Date();
@@ -338,6 +341,7 @@ var serviceTime = {
     },
     testOnConnect: function(){
         if(serviceTime.WINDOW === 't'){
+            // NOTE need to fix
             var date = new Date();
             serviceTime.consentSecond = 3600 - (date.getMinutes() * 60 + date.getSeconds()) - 10;
             serviceTime.confluenceSecond = serviceTime.consentSecond - 10;
@@ -388,9 +392,10 @@ var serviceTime = {
                 serviceTime.countDown = Math.floor(diff / 1000);
                 firstTimeout = diff % 1000;
             }
-            if(serviceTime.countDown < serviceTime.consentSecond){     // time to consent has passed
-                app.consent();
-                serviceTime.countDown = serviceTime.consentSecond - 1; // give time for someone to actually consent before confluence
+            var consentTime = 3600 - (serviceTime.START[3] * 60 + serviceTime.START[4]);
+            if(serviceTime.countDown < CONSENT_SECOND){       // time to consent has passed
+                app.consent();                                // given we past concent second
+                serviceTime.countDown = TIME_FOR_CONSENT - 1; // give time for someone to actually consent before confluence
             }
             app.timeouts = setTimeout(serviceTime.downCount, firstTimeout);
         } else {serviceTime.box.innerHTML = 'Currently matching users';}
@@ -400,8 +405,8 @@ var serviceTime = {
             if(serviceTime.countDown){
                 serviceTime.box.innerHTML = Math.floor(serviceTime.countDown / 60) + ' minutes and ' + serviceTime.countDown % 60 + ' seconds remaining';
                 serviceTime.countDown--;
-                if(serviceTime.countDown === serviceTime.consentSecond)        {app.consent();}
-                else if(serviceTime.countDown === serviceTime.confluenceSecond){dataPeer.onConfluence();}
+                if(serviceTime.countDown === CONSENT_SECOND)        {app.consent();}
+                else if(serviceTime.countDown === CONFLUENCE_SECOND){dataPeer.onConfluence();}
                 serviceTime.downCount();
             } else {
                 serviceTime.box.innerHTML = 'Currently matching users';  // display true begin time
