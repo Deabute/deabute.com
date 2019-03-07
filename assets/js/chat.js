@@ -336,7 +336,7 @@ var serviceTime = {
         if(serviceTime.WINDOW === 't'){
             var date = new Date();
             DAY_OF_WEEK = date.getDay();
-            HOUR_OF_DAY = date.getHours();
+            HOUR_OF_DAY = date.getHours() + 1;
             OPEN_MINUTE = 0;
         }
     },
