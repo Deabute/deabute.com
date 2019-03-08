@@ -320,8 +320,8 @@ var persistence = {
     },
 };
 
-var DAY_OF_WEEK = 4;
-var HOUR_OF_DAY = 17;
+var DAY_OF_WEEK = 6;
+var HOUR_OF_DAY = 18;
 var CONSENT_MINUTE = 59;
 var OPEN_MINUTE = CONSENT_MINUTE - 10;
 var CONFLUENCE_MINUTE = CONSENT_MINUTE;
