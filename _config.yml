@@ -1,7 +1,7 @@
 # Site Build Settings
 url: https://deabute.com
-#socketserver: wss://lonelyfriday.herokuapp.com
-socketserver: wss://wss.deabute.com/test
+socketserver: wss://lonelyfriday.herokuapp.com
+#socketserver: wss://wss.deabute.com/test
 
 # jekyll-paginate configuration
 paginate: 5
