@@ -11,6 +11,7 @@ var rtc = { // stun servers in config allow client to introspect a communication
     candidates: [],
     onIce: function(event){  // on address info being introspected (after local discription is set)
         if(event.candidate){ // canididate property denotes data as multiple candidates can resolve
+            console.log(JSON.stringify(event.candidate));
             rtc.candidates.push(event.canidate);
         } else {
             if(rtc.connectionGwid){
@@ -189,6 +190,7 @@ var ws = {
             rtc.peer.setRemoteDescription(req.sdp);
         } else if(req.type === 'ice'){
             req.candidates.forEach(function(candidate){
+                console.log(JSON.stringify(candidate));
                 rtc.peer.addIceCandidate(candidate);
             });
         } else if(req.type === 'makeOffer'){
