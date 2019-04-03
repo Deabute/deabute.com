@@ -12,7 +12,7 @@ var rtc = { // stun servers in config allow client to introspect a communication
     onIce: function(event){  // on address info being introspected (after local discription is set)
         if(event.candidate){ // canididate property denotes data as multiple candidates can resolve
             console.log(event);
-            rtc.candidates.push(JSON.stringify(event.canidate));
+            rtc.candidates.push(JSON.stringify(event.candidate));
             console.log(JSON.stringify(rtc.candidates));
         } else {
             if(rtc.connectionGwid){
