@@ -12,7 +12,7 @@ var rtc = { // stun servers in config allow client to introspect a communication
         if(rtc.connectionGwid){
             ws.send({type: 'ice', oid: localStorage.oid, candidate: candidate, gwid: rtc.connectionGwid});
         } else {
-            setTimeout(function(){rtc.iceAttempts(candidate);}, 1000);
+            setTimeout(function(){rtc.iceAttempts(candidate);}, 50);
         }
     },
     init: function(onSetupCB){                                  // varify mediastream before calling
