@@ -11,12 +11,9 @@ var rtc = { // stun servers in config allow client to introspect a communication
     candidates: [],
     onIce: function(event){  // on address info being introspected (after local discription is set)
         if(event.candidate){ // canididate property denotes data as multiple candidates can resolve
-            console.log(event);
-            rtc.candidates.push(JSON.stringify(event.candidate));
-            console.log(JSON.stringify(rtc.candidates));
+            rtc.candidates.push(event.candidate);
         } else {
             if(rtc.connectionGwid){
-                console.log(JSON.stringify(rtc.candidates));
                 ws.send({type: 'ice', oid: localStorage.oid, candidates: rtc.candidates, gwid: rtc.connectionGwid});
                 rtc.candidates = []; // remove it once we send it
             } else {setTimeout(function(){rtc.onIce(event);}, 50);}
@@ -192,8 +189,8 @@ var ws = {
             rtc.peer.setRemoteDescription(req.sdp);
         } else if(req.type === 'ice'){
             for(var i = 0; i < req.candidates.length; i++){
-                console.log(req.candidates[i]);
-                rtc.peer.addIceCandidate(JSON.parse(req.candidates[i]));
+                // console.log(req.candidates[i]);
+                rtc.peer.addIceCandidate(req.candidates[i]);
             }
         } else if(req.type === 'makeOffer'){
             if(req.pool){pool.set(req.pool);}
