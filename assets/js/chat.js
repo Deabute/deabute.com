@@ -189,10 +189,10 @@ var ws = {
             rtc.connectionGwid = req.gwid;
             rtc.peer.setRemoteDescription(req.sdp);
         } else if(req.type === 'ice'){
-            req.candidates.forEach(function(candidate){
-                console.log(JSON.stringify(candidate));
-                rtc.peer.addIceCandidate(candidate);
-            });
+            for(var i = 0; i < req.candidates.length; i++){
+                console.log(JSON.stringify(req.candidates[i]));
+                rtc.peer.addIceCandidate(req.candidates[i]);
+            }
         } else if(req.type === 'makeOffer'){
             if(req.pool){pool.set(req.pool);}
             rtc.init(rtc.createOffer);
