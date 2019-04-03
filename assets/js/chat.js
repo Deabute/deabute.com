@@ -188,7 +188,7 @@ var ws = {
             rtc.connectionGwid = req.gwid;
             rtc.peer.setRemoteDescription(req.sdp);
         } else if(req.type === 'ice'){
-            req.candidates.forEach(function(canidate){
+            req.candidates.forEach(function(candidate){
                 rtc.peer.addIceCandidate(candidate);
             });
         } else if(req.type === 'makeOffer'){
