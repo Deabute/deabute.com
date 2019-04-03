@@ -7,6 +7,7 @@ var rtc = { // stun servers in config allow client to introspect a communication
     peer: null,                                                 // placeholder for parent webRTC object instance
     connectionId: '',                                           // oid of peer we are connected w/
     lastPeer: '',
+    connectionGwid: '',
     init: function(onSetupCB){                                  // varify mediastream before calling
         rtc.peer = new RTCPeerConnection(rtc.config);           // create new instance for local client
         media.stream.getTracks().forEach(function(track){rtc.peer.addTrack(track, media.stream);});
