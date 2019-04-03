@@ -8,6 +8,13 @@ var rtc = { // stun servers in config allow client to introspect a communication
     connectionId: '',                                           // oid of peer we are connected w/
     lastPeer: '',
     connectionGwid: '',
+    iceAttempts: function(candidate){
+        if(rtc.connectionGwid){
+            ws.send({type: 'ice', oid: localStorage.oid, candidate: candidate, gwid: rtc.connectionGwid});
+        } else {
+            setTimeout(function(){rtc.iceAttempts(candidate);}, 1000);
+        }
+    },
     init: function(onSetupCB){                                  // varify mediastream before calling
         rtc.peer = new RTCPeerConnection(rtc.config);           // create new instance for local client
         media.stream.getTracks().forEach(function(track){rtc.peer.addTrack(track, media.stream);});
@@ -15,7 +22,8 @@ var rtc = { // stun servers in config allow client to introspect a communication
         dataPeer.channel = rtc.peer.createDataChannel('chat');  // Creates data endpoint for client's side of connection
         rtc.peer.onicecandidate = function onIce(event) {       // on address info being introspected (after local discription is set)
             if(event.candidate){                                // canididate property denotes data as multiple candidates can resolve
-                ws.send({type: 'ice', oid: localStorage.oid, candidate: event.candidate, gwid: rtc.connectionGwid});
+                rtc.iceAttempts(event.candidate);
+                // ws.send({type: 'ice', oid: localStorage.oid, candidate: event.candidate, gwid: rtc.connectionGwid});
             }                                                   // null event.candidate means we finished recieving candidates
         };    // Also note that sdp is going to be negotiated first regardless of any media being involved. its faster to resolve
         rtc.peer.ondatachannel = dataPeer.newChannel;           // creates data endpoints for remote peer on rtc connection
@@ -325,7 +333,7 @@ var persistence = {
 };
 
 var DAY_OF_WEEK = 3;
-var HOUR_OF_DAY = 13;
+var HOUR_OF_DAY = 14;
 var CONSENT_MINUTE = 11;
 var OPEN_MINUTE = CONSENT_MINUTE - 10;
 var CONFLUENCE_MINUTE = CONSENT_MINUTE;
