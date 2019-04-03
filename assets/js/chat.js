@@ -8,24 +8,23 @@ var rtc = { // stun servers in config allow client to introspect a communication
     connectionId: '',                                           // oid of peer we are connected w/
     lastPeer: '',
     connectionGwid: '',
-    iceAttempts: function(candidate){
-        if(rtc.connectionGwid){
-            ws.send({type: 'ice', oid: localStorage.oid, candidate: candidate, gwid: rtc.connectionGwid});
+    candidates: [],
+    onIce: function(event){  // on address info being introspected (after local discription is set)
+        if(event.candidate){ // canididate property denotes data as multiple candidates can resolve
+            rtc.candidates.push(event.canidate);
         } else {
-            setTimeout(function(){rtc.iceAttempts(candidate);}, 50);
+            if(rtc.connectionGwid){
+                ws.send({type: 'ice', oid: localStorage.oid, candidates: rtc.candidates, gwid: rtc.connectionGwid});
+                rtc.candidates = []; // remove it once we send it
+            } else {setTimeout(rtc.onIce, 50);}
         }
-    },
+    }, // Note that sdp is going to be negotiated first regardless of any media being involved. its faster to resolve, maybe?
     init: function(onSetupCB){                                  // varify mediastream before calling
         rtc.peer = new RTCPeerConnection(rtc.config);           // create new instance for local client
         media.stream.getTracks().forEach(function(track){rtc.peer.addTrack(track, media.stream);});
         rtc.peer.ontrack = media.ontrack;                       // behavior upon reciving track
         dataPeer.channel = rtc.peer.createDataChannel('chat');  // Creates data endpoint for client's side of connection
-        rtc.peer.onicecandidate = function onIce(event) {       // on address info being introspected (after local discription is set)
-            if(event.candidate){                                // canididate property denotes data as multiple candidates can resolve
-                rtc.iceAttempts(event.candidate);
-                // ws.send({type: 'ice', oid: localStorage.oid, candidate: event.candidate, gwid: rtc.connectionGwid});
-            }                                                   // null event.candidate means we finished recieving candidates
-        };    // Also note that sdp is going to be negotiated first regardless of any media being involved. its faster to resolve
+        rtc.peer.onicecandidate = rtc.onIce;                    // Handle ice canidate at any random time they decide to come
         rtc.peer.ondatachannel = dataPeer.newChannel;           // creates data endpoints for remote peer on rtc connection
         onSetupCB();                                            // create and offer or answer depending on what intiated
     },
@@ -189,7 +188,9 @@ var ws = {
             rtc.connectionGwid = req.gwid;
             rtc.peer.setRemoteDescription(req.sdp);
         } else if(req.type === 'ice'){
-            rtc.peer.addIceCandidate(req.candidate);
+            req.candidates.forEach(function(canidate){
+                rtc.peer.addIceCandidate(candidate);
+            });
         } else if(req.type === 'makeOffer'){
             if(req.pool){pool.set(req.pool);}
             rtc.init(rtc.createOffer);
