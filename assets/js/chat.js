@@ -14,7 +14,7 @@ var rtc = { // stun servers in config allow client to introspect a communication
         dataPeer.channel = rtc.peer.createDataChannel('chat');  // Creates data endpoint for client's side of connection
         rtc.peer.onicecandidate = function onIce(event) {       // on address info being introspected (after local discription is set)
             if(event.candidate){                                // canididate property denotes data as multiple candidates can resolve
-                ws.send({type: 'ice', oid: localStorage.oid, candidate: event.candidate});
+                ws.send({type: 'ice', oid: localStorage.oid, candidate: event.candidate, gwid: rtc.connectionGwid});
             }                                                   // null event.candidate means we finished recieving candidates
         };    // Also note that sdp is going to be negotiated first regardless of any media being involved. its faster to resolve
         rtc.peer.ondatachannel = dataPeer.newChannel;           // creates data endpoints for remote peer on rtc connection
@@ -28,14 +28,15 @@ var rtc = { // stun servers in config allow client to introspect a communication
             console.log('making offer');
         });
     },
-    giveAnswer: function(sdp, oidFromOffer){
+    giveAnswer: function(sdp, oidFromOffer, gwidOfPartner){
         rtc.peer.setRemoteDescription(sdp);
         rtc.connectionId = oidFromOffer;
+        rtc.connectionGwid = gwidOfPartner;
         rtc.peer.createAnswer().then(function onAnswer(answer){ // create answer to remote peer that offered
             return rtc.peer.setLocalDescription(answer);        // set that offer as our local discripion
         }).then(function onOfferSetDesc(){
             console.log('sending answer to ' + oidFromOffer);
-            ws.send({type: 'answer', oid: localStorage.oid, sdp: rtc.peer.localDescription, peerId: oidFromOffer}); // send offer to friend
+            ws.send({type: 'answer', oid: localStorage.oid, sdp: rtc.peer.localDescription, peerId: oidFromOffer, gwid: gwidOfPartner}); // send offer to friend
         });                                                     // note answer is shown to user in onicecandidate event above once resolved
     },
     close: function(talking){
@@ -49,6 +50,7 @@ var rtc = { // stun servers in config allow client to introspect a communication
         }
         rtc.lastPeer = rtc.connectionId;
         rtc.connectionId = '';
+        rtc.connectionGwid = '';
     }
 };
 
@@ -172,9 +174,10 @@ var ws = {
         try {req = JSON.parse(event.data);} // probably should be wrapped in error handler
         catch(error){}                   // if error we don't care there is a default object
         if(req.type === 'offer'){
-            rtc.init(function onInit(){rtc.giveAnswer(req.sdp, req.id);});
+            rtc.init(function onInit(){rtc.giveAnswer(req.sdp, req.id, req.gwid);});
         } else if(req.type === 'answer'){
             rtc.connectionId = req.id;
+            rtc.connectionGwid = req.gwid;
             rtc.peer.setRemoteDescription(req.sdp);
         } else if(req.type === 'ice'){
             rtc.peer.addIceCandidate(req.candidate);
@@ -320,9 +323,9 @@ var persistence = {
     },
 };
 
-var DAY_OF_WEEK = 6;
-var HOUR_OF_DAY = 18;
-var CONSENT_MINUTE = 59;
+var DAY_OF_WEEK = 3;
+var HOUR_OF_DAY = 13;
+var CONSENT_MINUTE = 11;
 var OPEN_MINUTE = CONSENT_MINUTE - 10;
 var CONFLUENCE_MINUTE = CONSENT_MINUTE;
 var CONSENT_SECOND = 3600 - (CONSENT_MINUTE * 60 + TIME_FOR_CONSENT);
