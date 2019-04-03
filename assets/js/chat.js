@@ -334,7 +334,7 @@ var persistence = {
 };
 
 var DAY_OF_WEEK = 3;
-var HOUR_OF_DAY = 14;
+var HOUR_OF_DAY = 15;
 var CONSENT_MINUTE = 11;
 var OPEN_MINUTE = CONSENT_MINUTE - 10;
 var CONFLUENCE_MINUTE = CONSENT_MINUTE;
