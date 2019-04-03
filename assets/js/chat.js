@@ -16,7 +16,7 @@ var rtc = { // stun servers in config allow client to introspect a communication
             if(rtc.connectionGwid){
                 ws.send({type: 'ice', oid: localStorage.oid, candidates: rtc.candidates, gwid: rtc.connectionGwid});
                 rtc.candidates = []; // remove it once we send it
-            } else {setTimeout(rtc.onIce, 50);}
+            } else {setTimeout(function(){rtc.onIce(event);}, 50);}
         }
     }, // Note that sdp is going to be negotiated first regardless of any media being involved. its faster to resolve, maybe?
     init: function(onSetupCB){                                  // varify mediastream before calling
