@@ -15,6 +15,7 @@ var rtc = { // stun servers in config allow client to introspect a communication
             rtc.candidates.push(event.canidate);
         } else {
             if(rtc.connectionGwid){
+                console.log(JSON.stringify(rtc.candidates));
                 ws.send({type: 'ice', oid: localStorage.oid, candidates: rtc.candidates, gwid: rtc.connectionGwid});
                 rtc.candidates = []; // remove it once we send it
             } else {setTimeout(function(){rtc.onIce(event);}, 50);}
