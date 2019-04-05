@@ -1,5 +1,5 @@
 // rtctest.js ~ copyright 2019 Paul Beaudet ~ MIT License
-// rtcSignal version - 1.0.24
+// rtcSignal version - 1.0.28
 // This test requires at least two browser windows, to open a data connection between two peer
 var rtc = { // stun servers in config allow client to introspect a communication path to offer a remote peer
     config: {'iceServers': [ {'urls': 'stun:stun.stunprotocol.org:3478'}, {'urls': 'stun:stun.l.google.com:19302'} ]},
@@ -14,7 +14,7 @@ var rtc = { // stun servers in config allow client to introspect a communication
             rtc.candidates.push(event.candidate);
         } else {
             if(rtc.connectionGwid){
-                ws.send({type: 'ice', oid: localStorage.oid, candidates: rtc.candidates, gwid: rtc.connectionGwid});
+                ws.send({action: 'ice', oid: localStorage.oid, candidates: rtc.candidates, gwid: rtc.connectionGwid});
                 rtc.candidates = []; // remove it once we send it
             } else {setTimeout(function(){rtc.onIce(event);}, 50);}
         }
@@ -32,7 +32,7 @@ var rtc = { // stun servers in config allow client to introspect a communication
         rtc.peer.createOffer({offerToReceiveAudio: 1, offerToReceiveVideo: 0}).then( function onOffer(desc){// get sdp data to show user & share w/ friend
             return rtc.peer.setLocalDescription(desc);                        // note what sdp data self will use
         }).then( function onSet(){
-            ws.send({type: 'offer', oid: localStorage.oid, sdp: rtc.peer.localDescription, lastMatches: rtc.lastMatches}); // send offer to connect
+            ws.send({action: 'offer', oid: localStorage.oid, sdp: rtc.peer.localDescription, lastMatches: rtc.lastMatches}); // send offer to connect
             console.log('making offer');
         });
     },
@@ -44,7 +44,7 @@ var rtc = { // stun servers in config allow client to introspect a communication
             return rtc.peer.setLocalDescription(answer);        // set that offer as our local discripion
         }).then(function onOfferSetDesc(){
             console.log('sending answer to ' + oidFromOffer);
-            ws.send({type: 'answer', oid: localStorage.oid, sdp: rtc.peer.localDescription, peerId: oidFromOffer, gwid: gwidOfPartner}); // send offer to friend
+            ws.send({action: 'answer', oid: localStorage.oid, sdp: rtc.peer.localDescription, peerId: oidFromOffer, gwid: gwidOfPartner}); // send offer to friend
         });                                                     // note answer is shown to user in onicecandidate event above once resolved
     },
     close: function(talking){
@@ -82,31 +82,31 @@ var dataPeer = {
         receiveChannel.onmessage = dataPeer.incoming;        // handle events upon opening connection
         receiveChannel.onopen = function onOpen(){
             dataPeer.connected = true;
-            dataPeer.send({type: 'connect', username: localStorage.username});
+            dataPeer.send({action: 'connect', username: localStorage.username});
         };
     },
     incoming: function(event){                              // handle incoming rtc messages
-        var req = {type: null};                             // request defualt
+        var req = {action: null};                             // request defualt
         try {req = JSON.parse(event.data);}catch(error){}   // probably should be wrapped in error handler
-        if(req.type === 'disconnect'){                      // recieved when peer ends
+        if(req.action === 'disconnect'){                      // recieved when peer ends
             app.disconnect();
-        } else if(req.type === 'terminate'){
+        } else if(req.action === 'terminate'){
             dataPeer.close();
-        } else if(req.type === 'ready'){
+        } else if(req.action === 'ready'){
             dataPeer.whenReady();
-        } else if(req.type === 'connect'){
+        } else if(req.action === 'connect'){
             dataPeer.peerName = req.username; console.log('connected to ' + req.username);
             if(dataPeer.clientReady){dataPeer.readySignal();}
         }
     },
     disconnect: function(human){
-        if(human){dataPeer.send({type: 'disconnect'});} // tell friend we are done
+        if(human){dataPeer.send({action: 'disconnect'});} // tell friend we are done
         dataPeer.clientReady = false;        // no longer ready
-        ws.send({type: 'pause', oid: localStorage.oid});
+        ws.send({action: 'pause', oid: localStorage.oid});
         dataPeer.close();
     },
     send: function(sendObj){
-        try{sendObj = JSON.stringify(sendObj);} catch(error){sendObj = {type: 'error', error: error};}
+        try{sendObj = JSON.stringify(sendObj);} catch(error){sendObj = {action: 'error', error: error};}
         if(dataPeer.connected){
             dataPeer.channel.send(sendObj);
             return true;
@@ -115,13 +115,13 @@ var dataPeer = {
     readySignal: function(){
         dataPeer.clientReady = true;
         if(dataPeer.peerName){
-            dataPeer.send({type:'ready', username: localStorage.username});
+            dataPeer.send({action:'ready', username: localStorage.username});
             dataPeer.whenReady();
         } else { dataPeer.setReconsentTime(false);}
     },
     setReconsentTime: function(inactive){
         if(inactive){ws.repool();}
-        else if(pool.count > 1){ws.send({type: 'unmatched', oid: localStorage.oid});} // let server know we can be rematched
+        else if(pool.count > 1){ws.send({action: 'unmatched', oid: localStorage.oid});} // let server know we can be rematched
         app.timeouts = setTimeout(app.consent, TIME_FOR_CONSENT * 1000);
     },
     whenReady: function(){
@@ -135,7 +135,7 @@ var dataPeer = {
     },
     onConfluence: function(){       // happens at confluence time
         if(!dataPeer.talking){      // given conversation is a dud
-            if(dataPeer.peerName){dataPeer.send({type: 'terminate'});}
+            if(dataPeer.peerName){dataPeer.send({action: 'terminate'});}
             if(dataPeer.clientReady){
                 dataPeer.setReconsentTime(false);
             } else {
@@ -164,43 +164,43 @@ var ws = {
             ws.active = true;
             ws.connected = true;
             ws.instance.onmessage = ws.incoming;
-            ws.send({type: 'connected', oid: localStorage.oid, lastMatches: rtc.lastMatches});
+            ws.send({action: 'connected', oid: localStorage.oid, lastMatches: rtc.lastMatches});
             ws.onclose = function onSocketClose(){ws.connected = false;};
             ws.onConnection();
         };
     },
     reduce: function(pause){
-        if(ws.active){ws.send({type:'reduce', oid: localStorage.oid, pause: pause});}
+        if(ws.active){ws.send({action:'reduce', oid: localStorage.oid, pause: pause});}
         ws.active = false;
     },
     repool: function(){
-        if(!ws.active){ws.send({type: 'repool', oid: localStorage.oid, lastMatches: rtc.lastMatches});} // let server know we can be rematched
+        if(!ws.active){ws.send({action: 'repool', oid: localStorage.oid, lastMatches: rtc.lastMatches});} // let server know we can be rematched
         ws.active = true;
     },
     incoming: function(event){           // handle incoming socket messages
-        var req = {type: null};          // request
+        var req = {action: null};          // request
         try {req = JSON.parse(event.data);} // probably should be wrapped in error handler
         catch(error){}                   // if error we don't care there is a default object
-        if(req.type === 'offer'){
+        if(req.action === 'offer'){
             rtc.init(function onInit(){rtc.giveAnswer(req.sdp, req.id, req.gwid);});
-        } else if(req.type === 'answer'){
+        } else if(req.action === 'answer'){
             rtc.connectionId = req.id;
             rtc.connectionGwid = req.gwid;
             rtc.peer.setRemoteDescription(req.sdp);
-        } else if(req.type === 'ice'){
+        } else if(req.action === 'ice'){
             for(var i = 0; i < req.candidates.length; i++){rtc.peer.addIceCandidate(req.candidates[i]);}
-        } else if(req.type === 'makeOffer'){
+        } else if(req.action === 'makeOffer'){
             if(req.pool){pool.set(req.pool);}
             rtc.init(rtc.createOffer);
             prompt.caller = true; // defines who instigator is, to split labor
-        } else if(req.type === 'setPool'){
+        } else if(req.action === 'setPool'){
             pool.set(req.pool);
-        } else if(req.type === 'pool'){
+        } else if(req.action === 'pool'){
             pool.increment(req.count);
         }
     },
     send: function(msg){
-        try{msg = JSON.stringify(msg);} catch(error){msg = {type:'error', error: error};}
+        try{msg = JSON.stringify(msg);} catch(error){msg = {action:'error', error: error};}
         if(ws.connected){
             ws.instance.send(msg);
             return true;
